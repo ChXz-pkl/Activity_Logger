@@ -1,5 +1,5 @@
 // Nama cache dan file-file yang akan disimpan untuk mode offline
-const CACHE_NAME = 'activity-logger-v2'; // Versi cache dinaikkan untuk memicu update
+const CACHE_NAME = 'activity-logger-v3'; // Versi cache dinaikkan untuk memicu update
 const urlsToCache = [
   '/',
   'index.html',
