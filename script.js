@@ -1,5 +1,6 @@
-import { initializeApp, enablePersistence  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// MODIFIKASI: Menggunakan nama fungsi yang benar -> enableIndexedDbPersistence
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
@@ -14,6 +15,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// MODIFIKASI: Memanggil fungsi yang benar -> enableIndexedDbPersistence
+enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+        // Kemungkinan karena tab lain sudah terbuka dengan pengaturan berbeda
+        console.warn("Firebase offline persistence gagal, kemungkinan tab lain terbuka.");
+    } else if (err.code == 'unimplemented') {
+        // Browser tidak mendukung fitur ini
+        console.log("Browser ini tidak mendukung offline persistence.");
+    }
+});
+
 
 // === STATE APLIKASI ===
 let currentUser = null;
@@ -65,7 +78,21 @@ function setupAplikasi() {
         timerInterval = setInterval(timerLoop, 1000);
     }
     requestNotificationPermission();
+
+    // Mendaftarkan Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('Service Worker berhasil didaftarkan: ', registration.scope);
+                })
+                .catch(error => {
+                    console.log('Pendaftaran Service Worker gagal: ', error);
+                });
+        });
+    }
 }
+
 
 // Fungsi untuk mengatur tanggal dan memuat ulang data
 function setTanggal(newDate) {
@@ -120,7 +147,6 @@ function setupRealtimeListeners() {
         daftarKegiatan = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         loadingElement.style.display = 'none';
         
-        // Cek apakah ada proyek atau kegiatan
         const adaProyekHariIni = daftarProyek.some(p => daftarKegiatan.some(k => k.proyekId === p.id));
         pesanKosongElement.style.display = (daftarKegiatan.length === 0 && !adaProyekHariIni) ? 'block' : 'none';
 
@@ -145,7 +171,6 @@ function renderDaftarUtama() {
     
     daftarProyek.forEach(proyek => {
         const subTugas = daftarKegiatan.filter(k => k.proyekId === proyek.id);
-        // Hanya render proyek jika ada subtugas di hari itu
         if (subTugas.length > 0) {
             daftarKegiatanElement.appendChild(buatElemenProyek(proyek, subTugas));
         }
@@ -196,7 +221,6 @@ function buatElemenKegiatan(kegiatan, isSubtugas = false) {
     
     let teksElementHTML;
     if (kegiatan.isEditing) {
-        // Encode HTML entities untuk keamanan
         const encodedText = kegiatan.teks.replace(/"/g, '&quot;');
         teksElementHTML = `<input type="text" value="${encodedText}" class="input-edit-kegiatan flex-grow bg-yellow-100 border border-yellow-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-yellow-500">`;
     } else {
@@ -447,7 +471,7 @@ function kirimNotifikasiFokusSelesai(kegiatan) {
     if (Notification.permission === 'granted') {
         const notif = new Notification("⏰ Sesi Fokus Selesai!", {
             body: `Kerja bagus! Kegiatan "${kegiatan.teks}" telah ditandai selesai.`,
-            icon: "https://cdn-icons-png.flaticon.com/512/148/148924.png"
+            icon: "images/icon-192.png"
         });
     } else {
         new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg').play();
@@ -553,26 +577,4 @@ function setupEventListeners() {
     inputProyek.addEventListener('keydown', e => { if (e.key === 'Enter') tambahProyek(); });
     inputKegiatan.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputWaktu.focus(); } });
     inputWaktu.addEventListener('keydown', e => { if (e.key === 'Enter') tambahKegiatan(); });
-}
-
-function setupAplikasi() {
-    setupEventListeners();
-    setTanggal(new Date()); 
-    if (!timerInterval) {
-        timerInterval = setInterval(timerLoop, 1000);
-    }
-    requestNotificationPermission();
-
-    // BARU: Mendaftarkan Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('Service Worker berhasil didaftarkan: ', registration.scope);
-                })
-                .catch(error => {
-                    console.log('Pendaftaran Service Worker gagal: ', error);
-                });
-        });
-    }
 }
