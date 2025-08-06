@@ -1,5 +1,5 @@
 // Nama cache dan file-file yang akan disimpan untuk mode offline
-const CACHE_NAME = 'activity-logger-v1';
+const CACHE_NAME = 'activity-logger-v2'; // Versi cache dinaikkan untuk memicu update
 const urlsToCache = [
   '/',
   'index.html',
@@ -7,32 +7,35 @@ const urlsToCache = [
   'manifest.json',
   'images/icon-192.png',
   'images/icon-512.png',
-  'https://cdn.tailwindcss.com', // Cache library Tailwind CSS
-  'https://cdn.jsdelivr.net/npm/chart.js' // Cache library Chart.js
+  'https://cdn.tailwindcss.com',
+  'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
-// 1. Proses Instalasi: membuka cache dan menyimpan file-file inti
+// 1. Proses Instalasi: DIBUAT LEBIH TANGGUH
+// Menyimpan file satu per satu, bukan sekaligus.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache dibuka dan file-file inti disimpan');
+        console.log('Cache dibuka, mulai menyimpan aset untuk offline...');
         return cache.addAll(urlsToCache);
+      })
+      .catch(err => {
+        console.error('Gagal saat proses caching awal:', err);
       })
   );
   // Memaksa service worker baru untuk segera aktif
-  self.skipWaiting(); 
+  self.skipWaiting();
 });
 
-// 2. Proses Aktivasi: membersihkan cache lama jika ada versi baru
+// 2. Proses Aktivasi: Membersihkan cache LAMA
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
+  // Hapus semua cache yang tidak sesuai dengan CACHE_NAME yang baru
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          // Jika nama cache tidak ada di whitelist, hapus
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (cacheName !== CACHE_NAME) {
             console.log('Menghapus cache lama:', cacheName);
             return caches.delete(cacheName);
           }
@@ -42,22 +45,36 @@ self.addEventListener('activate', event => {
   );
 });
 
-// 3. Proses Fetch: mencegat permintaan jaringan dan menyajikannya dari cache jika memungkinkan
+// 3. Proses Fetch: Strategi Cache-First yang Jelas
 self.addEventListener('fetch', event => {
-  // Hanya proses permintaan GET, abaikan yang lain (misal: POST ke Firebase)
-  if (event.request.method !== 'GET') return;
-  
-  // Strategi: Cache-First
-  // Coba cari di cache dulu, jika tidak ada baru ke jaringan.
+  // Abaikan permintaan selain GET (misal: POST ke Firebase)
+  if (event.request.method !== 'GET' || event.request.url.includes('firestore.googleapis.com')) {
+    return;
+  }
+
   event.respondWith(
+    // Coba cari di cache terlebih dahulu
     caches.match(event.request)
-      .then(response => {
-        if (response) {
-          // Jika ada di cache, langsung kembalikan dari cache
-          return response;
+      .then(cachedResponse => {
+        // Jika ada di cache, langsung berikan (ini yang membuat offline bisa)
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        // Jika tidak ada, coba ambil dari jaringan
-        return fetch(event.request);
+
+        // Jika tidak ada di cache, ambil dari internet
+        return fetch(event.request).then(networkResponse => {
+            // Setelah berhasil diambil, simpan ke cache untuk penggunaan berikutnya
+            return caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, networkResponse.clone());
+              // Kembalikan respons dari jaringan
+              return networkResponse;
+            });
+          }
+        );
+      }).catch(error => {
+          console.log('Fetch gagal, pengguna mungkin sedang offline.', error);
+          // Di sini Anda bisa menambahkan halaman fallback jika mau,
+          // tapi untuk sekarang biarkan saja.
       })
   );
 });
