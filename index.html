@@ -5,53 +5,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activity Logger Pro</title>
-     <link rel="manifest" href="manifest.json">
-     <link rel="icon" type="image/png" href="images/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="images/icon-192.png">
+    <meta name="theme-color" content="#3b82f6">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .list-subtugas {
-            max-height: 1000px;
-            transition: max-height 0.5s ease-in-out, margin 0.5s ease-in-out, padding 0.5s ease-in-out;
-            overflow: hidden;
-        }
-
-        .list-subtugas.collapsed {
-            max-height: 0;
-            margin-top: 0 !important;
-            padding-top: 0;
-            padding-bottom: 0;
-        }
-
-        .tombol-hapus-proyek, .tombol-utilitas {
-            transition: background-color 0.2s, transform 0.2s;
-        }
-        .tombol-utilitas:hover {
-            transform: translateY(-2px);
-        }
-        
-        /* Style untuk input edit */
-        .input-edit-kegiatan {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .list-subtugas { max-height: 1000px; transition: all 0.5s ease-in-out; overflow: hidden; }
+        .list-subtugas.collapsed { max-height: 0; margin: 0 !important; padding: 0 !important; }
+        #login-overlay { backdrop-filter: blur(5px); }
     </style>
 </head>
 
 <body class="bg-slate-100 font-sans text-slate-800">
 
-    <div class="container mx-auto max-w-4xl p-4 md:p-8">
+    <div id="login-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white w-full max-w-sm p-8 rounded-xl shadow-2xl text-center">
+            <h2 class="text-2xl font-bold mb-6">Login atau Daftar</h2>
+            <div class="space-y-4">
+                <input type="email" id="input-email" placeholder="Email" autocomplete="email" class="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="password" id="input-password" placeholder="Password" autocomplete="current-password" class="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="flex gap-4">
+                    <button id="tombol-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Login</button>
+                    <button id="tombol-daftar" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Daftar</button>
+                </div>
+                <div class="relative flex py-4 items-center">
+                    <div class="flex-grow border-t border-slate-300"></div>
+                    <span class="flex-shrink mx-4 text-slate-400">atau</span>
+                    <div class="flex-grow border-t border-slate-300"></div>
+                </div>
+                <button id="tombol-login-google" class="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
+                    <span>Login dengan Google</span>
+                </button>
+                <p id="auth-error" class="text-red-500 text-sm h-4"></p>
+            </div>
+        </div>
+    </div>
 
-        <header class="mb-8 text-center">
-            <h1 id="nama-user" class="text-3xl md:text-4xl font-bold text-slate-900">Memuat...</h1>
-            <div class="flex items-center justify-center gap-4 mt-2">
-                <button id="tombol-hari-sebelumnya" class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">◄</button>
-                <p id="tanggal-hari-ini" class="text-slate-500 text-lg font-semibold"></p>
-                <button id="tombol-hari-berikutnya" class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">►</button>
+    <div id="app-container" class="container mx-auto max-w-4xl p-4 md:p-8 hidden">
+        <header class="mb-8">
+            <div class="flex justify-between items-center text-center">
+                <button id="tombol-logout" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm">Logout</button>
+                <div class="flex-grow">
+                    <h1 id="nama-user" class="text-3xl md:text-4xl font-bold text-slate-900">Memuat...</h1>
+                    <div class="flex items-center justify-center gap-4 mt-2">
+                        <button id="tombol-hari-sebelumnya" class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">◄</button>
+                        <p id="tanggal-hari-ini" class="text-slate-500 text-lg font-semibold"></p>
+                        <button id="tombol-hari-berikutnya" class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">►</button>
+                    </div>
+                </div>
+                <div class="w-16"></div> 
             </div>
         </header>
 
@@ -61,70 +65,42 @@
                     <div class="space-y-2">
                         <h3 class="font-bold text-lg text-slate-900">Buat Proyek Baru</h3>
                         <div class="flex gap-2">
-                            <input type="text" id="input-proyek" placeholder="Nama Proyek"
-                                class="flex-grow w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <button id="tombol-tambah-proyek"
-                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah</button>
+                            <input type="text" id="input-proyek" placeholder="Nama Proyek" class="flex-grow w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <button id="tombol-tambah-proyek" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah</button>
                         </div>
                     </div>
                     <div class="space-y-2">
                         <h3 class="font-bold text-lg text-slate-900">Tambah Kegiatan Baru</h3>
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" id="input-kegiatan" placeholder="Nama kegiatan"
-                                class="col-span-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <input type="text" id="input-waktu" placeholder="Waktu mulai (opsional)"
-                                class="bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <select id="input-kategori"
-                                class="bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option>Pekerjaan</option>
-                                <option>Belajar</option>
-                                <option>Pribadi</option>
-                                <option>Istirahat</option>
-                                <option>Lainnya</option>
+                            <input type="text" id="input-kegiatan" placeholder="Nama kegiatan" class="col-span-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <input type="text" id="input-waktu" placeholder="Waktu mulai (opsional)" class="bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="input-kategori" class="bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option>Pekerjaan</option> <option>Belajar</option> <option>Pribadi</option> <option>Istirahat</option> <option>Lainnya</option>
                             </select>
-                            <select id="pilih-proyek"
-                                class="col-span-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <select id="pilih-proyek" class="col-span-2 bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="none">-- Tanpa Proyek --</option>
                             </select>
-                            <button id="tombol-tambah"
-                                class="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah
-                                Kegiatan</button>
+                            <button id="tombol-tambah" class="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah Kegiatan</button>
                         </div>
                     </div>
                 </div>
             </div>
-
             <div id="daftar-utama-container" class="space-y-4">
                 <h2 class="text-2xl font-bold text-slate-900">Daftar Kegiatan & Proyek</h2>
-                <div id="loading" class="text-center py-8">
-                    <p class="text-slate-500">Menyambungkan ke database...</p>
-                </div>
-                <div id="pesan-kosong" class="hidden text-center py-8 bg-white rounded-xl shadow-sm">
-                    <p class="text-slate-500">Tidak ada kegiatan untuk tanggal ini. Ayo mulai!</p>
-                </div>
-                <ul id="daftar-kegiatan" class="space-y-3">
-                    </ul>
+                <div id="loading" class="text-center py-8"> <p class="text-slate-500">Menyambungkan ke database...</p> </div>
+                <div id="pesan-kosong" class="hidden text-center py-8 bg-white rounded-xl shadow-sm"> <p class="text-slate-500">Tidak ada kegiatan untuk tanggal ini. Ayo mulai!</p> </div>
+                <ul id="daftar-kegiatan" class="space-y-3"> </ul>
             </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-xl shadow-sm md:col-span-1">
                     <h2 class="text-xl font-bold text-slate-900 mb-4">📊 Ringkasan Hari Ini</h2>
-                    <div class="relative h-64 w-full">
-                         <canvas id="statistik-chart"></canvas>
-                    </div>
-                    <div id="konten-statistik-teks" class="text-slate-600 mt-4">
-                        <p>Selesaikan tugas untuk melihat statistik.</p>
-                    </div>
+                    <div class="relative h-64 w-full"> <canvas id="statistik-chart"></canvas> </div>
+                    <div id="konten-statistik-teks" class="text-slate-600 mt-4"> <p>Selesaikan tugas untuk melihat statistik.</p> </div>
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-sm md:col-span-1">
                     <h2 class="text-xl font-bold text-slate-900 mb-4">Utilitas Teks</h2>
-                     <div class="flex flex-wrap gap-2">
-                            <button id="tombol-generate-teks"
-                                class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg tombol-utilitas">Jadikan
-                                Teks & Salin</button>
-                     </div>
-                    <textarea id="hasil-teks" rows="8" placeholder="Hasil teks akan muncul di sini..."
-                        class="mt-4 w-full bg-slate-100 border border-slate-300 rounded-lg p-3"></textarea>
+                    <div class="flex flex-wrap gap-2"> <button id="tombol-generate-teks" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg">Jadikan Teks & Salin</button> </div>
+                    <textarea id="hasil-teks" rows="8" placeholder="Hasil teks akan muncul di sini..." class="mt-4 w-full bg-slate-100 border border-slate-300 rounded-lg p-3"></textarea>
                 </div>
             </div>
         </main>
@@ -132,5 +108,4 @@
 
     <script type="module" src="script.js"></script>
 </body>
-
 </html>
