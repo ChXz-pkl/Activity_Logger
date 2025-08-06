@@ -1,0 +1,21 @@
+{
+  "name": "Activity Logger Pro",
+  "short_name": "ActivityLog",
+  "description": "Aplikasi untuk mencatat semua kegiatan harian Anda dengan mudah.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "images/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "images/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
