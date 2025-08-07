@@ -1,5 +1,5 @@
 // Nama cache dan file-file yang akan disimpan untuk mode offline
-const CACHE_NAME = 'activity-logger-v4'; // VERSI DIUBAH UNTUK MEMAKSA UPDATE
+const CACHE_NAME = 'activity-logger-v5'; // VERSI NAIK LAGI UNTUK MEMAKSA UPDATE
 const urlsToCache = [
   '/',
   'index.html',
@@ -16,30 +16,30 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Cache v3 dibuka, mulai menyimpan aset untuk offline...');
+        console.log('Cache v4 dibuka, menyimpan aset...');
         return cache.addAll(urlsToCache);
       })
-      .catch(err => {
-        console.error('Gagal saat proses caching awal:', err);
-      })
   );
-  // Memaksa service worker baru untuk segera aktif
+  // Perintahkan SW baru untuk tidak menunggu, langsung aktif.
   self.skipWaiting();
 });
 
-// 2. Proses Aktivasi: Membersihkan cache LAMA
+// 2. Proses Aktivasi: Membersihkan cache LAMA dan mengambil alih kontrol
 self.addEventListener('activate', event => {
-  // Hapus semua cache yang tidak sesuai dengan CACHE_NAME yang baru (v3)
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Menghapus cache lama:', cacheName);
+            console.log('SW v4: Menghapus cache lama:', cacheName);
             return caches.delete(cacheName);
           }
         })
-      );
+      ).then(() => {
+        console.log('SW v4: Mengambil alih kontrol semua klien.');
+        // INI KUNCINYA: Paksa semua tab/jendela yang terbuka untuk menggunakan SW baru ini.
+        return self.clients.claim();
+      });
     })
   );
 });
