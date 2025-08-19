@@ -1,5 +1,7 @@
-// NAIKKAN VERSI INI KARENA ADA PERUBAHAN FUNGSI DI SERVICE WORKER
-const CACHE_NAME = 'activity-logger-v9'; 
+// 1. NAIKKAN VERSI CACHE INI
+const CACHE_NAME = 'activity-logger-v10'; 
+
+// 2. TAMBAHKAN SCRIPT SORTABLEJS KE DALAM DAFTAR CACHE
 const urlsToCache = [
   '/',
   'index.html',
@@ -8,10 +10,11 @@ const urlsToCache = [
   'images/icon-192.png',
   'images/icon-512.png',
   'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js' // <-- BARIS BARU
 ];
 
-// 1. Proses Instalasi: (Tidak ada perubahan logika)
+// Proses Instalasi
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -23,7 +26,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// 2. Proses Aktivasi: (Tidak ada perubahan logika)
+// Proses Aktivasi
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -42,7 +45,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// 3. Proses Fetch: (Tidak ada perubahan logika)
+// Proses Fetch
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || event.request.url.includes('firestore.googleapis.com')) {
     return;
@@ -64,33 +67,21 @@ self.addEventListener('fetch', event => {
 });
 
 
-/**
- * =================================================================
- * PENAMBAHAN BARU DI BAGIAN INI
- * =================================================================
- * Event listener ini akan berjalan ketika notifikasi di-klik oleh pengguna.
- */
+// Event listener untuk klik notifikasi
 self.addEventListener('notificationclick', event => {
-  // Tutup notifikasi yang di-klik
   event.notification.close();
-
-  // Ambil URL yang kita simpan di 'data' saat membuat notifikasi
   const urlToOpen = event.notification.data.url;
-
-  // Cek apakah ada tab aplikasi yang sudah terbuka
   event.waitUntil(
     clients.matchAll({
       type: 'window',
       includeUncontrolled: true
     }).then(clientList => {
-      // Jika sudah ada tab yang terbuka, fokus ke tab tersebut
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // Jika tidak ada tab yang terbuka, buka tab baru
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }

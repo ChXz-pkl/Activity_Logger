@@ -4,7 +4,7 @@
   "description": "Aplikasi untuk mencatat semua kegiatan harian Anda dengan mudah.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f1f5f9",
+  "background_color": "#0f172a",
   "theme_color": "#3b82f6",
   "icons": [
     {

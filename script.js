@@ -19,6 +19,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // === DOM ELEMENTS ===
+// (Tidak ada perubahan di sini)
 const loginOverlay = document.getElementById('login-overlay');
 const appContainer = document.getElementById('app-container');
 const inputEmail = document.getElementById('input-email');
@@ -57,7 +58,9 @@ const customAlertMessage = document.getElementById('custom-alert-message');
 const customPromptInputContainer = document.getElementById('custom-prompt-input-container');
 const customAlertButtons = document.getElementById('custom-alert-buttons');
 
+
 // === APP STATE ===
+// (Tidak ada perubahan di sini)
 let currentUser = null;
 let userProfile = {};
 let daftarKegiatan = [];
@@ -68,6 +71,47 @@ let unsubscribeProfile = () => { };
 let unsubscribeActivities = () => { };
 let currentDate = new Date();
 let eventListenersAttached = false;
+let sortableInstances = [];
+
+
+// =================================================================
+// PERBAIKAN DI SINI: FUNGSI DARK MODE DAN PEMANGGILANNYA
+// =================================================================
+
+// Fungsi untuk setup dark mode
+function setupDarkMode() {
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const lightIcon = document.getElementById('theme-toggle-light-icon');
+    const darkIcon = document.getElementById('theme-toggle-dark-icon');
+    if (!darkModeToggle || !lightIcon || !darkIcon) return;
+
+    const applyTheme = (isDark) => {
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+            lightIcon.classList.remove('hidden');
+            darkIcon.classList.add('hidden');
+        } else {
+            document.documentElement.classList.remove('dark');
+            lightIcon.classList.add('hidden');
+            darkIcon.classList.remove('hidden');
+        }
+    };
+
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDarkMode = savedTheme === 'dark' || (savedTheme === null && prefersDark);
+    applyTheme(isDarkMode);
+
+    darkModeToggle.addEventListener('click', () => {
+        const isCurrentlyDark = document.documentElement.classList.contains('dark');
+        applyTheme(!isCurrentlyDark);
+        localStorage.setItem('theme', isCurrentlyDark ? 'light' : 'dark');
+    });
+}
+
+// Panggil setupDarkMode() SEGERA setelah halaman dimuat
+setupDarkMode();
+
 
 // --- Main function to run the application ---
 function runApp() {
@@ -107,6 +151,7 @@ function handleAuthError(error) {
 function setupAplikasi() {
     if (!eventListenersAttached) {
         setupAppEventListeners();
+        // setupDarkMode(); // <-- BARIS INI DIHAPUS DARI SINI
         eventListenersAttached = true;
     }
     loadInitialDataAndSetupListeners();
@@ -117,6 +162,9 @@ function setupAplikasi() {
     requestNotificationPermission();
 }
 
+
+// ... SISA KODE SAMA PERSIS SEPERTI SEBELUMNYA ...
+// (Anda tidak perlu mengubah apa pun dari sini ke bawah)
 function setupAppEventListeners() {
     tombolTambahProyek.addEventListener('click', tambahProyek);
     tombolTambah.addEventListener('click', tambahKegiatan);
@@ -136,7 +184,6 @@ function unsubscribeAll() {
     unsubscribeActivities();
 }
 
-// === CUSTOM ALERT/CONFIRM/PROMPT SYSTEM ===
 function showCustomAlert(message, title = "Notifikasi") {
     customPromptInputContainer.innerHTML = '';
     customAlertTitle.textContent = title;
@@ -202,8 +249,6 @@ function showCustomPrompt(message, title = "Input", defaultValue = "") {
     });
 }
 
-
-// === MAIN APP FUNCTIONS (OPTIMIZED) ===
 async function loadInitialDataAndSetupListeners() {
     if (!currentUser) return;
     unsubscribeAll();
@@ -213,7 +258,7 @@ async function loadInitialDataAndSetupListeners() {
         namaUserElement.textContent = userProfile.customName || currentUser.displayName || currentUser.email.split('@')[0];
     });
     try {
-        const projectsQuery = query(collection(db, "users", currentUser.uid, "projects"), orderBy("createdAt", "asc"));
+        const projectsQuery = query(collection(db, "users", currentUser.uid, "projects"), orderBy("order", "asc"));
         const projectSnapshot = await getDocs(projectsQuery);
         daftarProyek = projectSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() }));
         renderProyekDropdowns();
@@ -234,12 +279,16 @@ function setupDailyActivityListener() {
     const startOfDay = currentDate;
     const endOfDay = new Date(currentDate);
     endOfDay.setDate(endOfDay.getDate() + 1);
-    const activitiesQuery = query(collection(db, "users", currentUser.uid, "activities"), where("createdAt", ">=", startOfDay), where("createdAt", "<", endOfDay), orderBy("createdAt", "asc"));
+    const activitiesQuery = query(collection(db, "users", currentUser.uid, "activities"), where("createdAt", ">=", startOfDay), where("createdAt", "<", endOfDay), orderBy("order", "asc"));
     unsubscribeActivities = onSnapshot(activitiesQuery, (snapshot) => {
         loadingElement.style.display = 'none';
         snapshot.docChanges().forEach((change) => {
             const kegiatanData = { id: change.doc.id, ...change.doc.data() };
+            if (!kegiatanData.order) {
+                kegiatanData.order = kegiatanData.createdAt.toMillis();
+            }
             const index = daftarKegiatan.findIndex(k => k.id === change.doc.id);
+
             if (change.type === "added") {
                 if (index === -1) daftarKegiatan.push(kegiatanData);
             }
@@ -250,6 +299,7 @@ function setupDailyActivityListener() {
                 if (index > -1) daftarKegiatan.splice(index, 1);
             }
         });
+        daftarKegiatan.sort((a, b) => a.order - b.order);
         renderDaftarUtama();
         perbaruiStatistik();
     }, (error) => {
@@ -282,7 +332,86 @@ function isToday(date) {
     return date.setHours(0, 0, 0, 0) === today.setHours(0, 0, 0, 0);
 }
 
-// === RENDER FUNCTIONS ===
+function initSortable() {
+    sortableInstances.forEach(instance => instance.destroy());
+    sortableInstances = [];
+
+    const projectContainer = document.getElementById('daftar-proyek-container');
+    const otherActivitiesContainer = document.getElementById('daftar-kegiatan-lain');
+    const subtaskContainers = document.querySelectorAll('.list-subtugas');
+
+    const projectSortableOptions = {
+        animation: 150,
+        ghostClass: 'bg-blue-100 dark:bg-slate-700',
+        onEnd: (evt) => {
+            const itemIds = Array.from(evt.from.children).map(child => child.dataset.proyekId);
+            updateOrderInFirestore(itemIds, 'projects');
+        }
+    };
+
+    const activitySortableOptions = {
+        animation: 150,
+        ghostClass: 'bg-blue-100 dark:bg-slate-700',
+        group: 'shared-activities',
+        onEnd: async (evt) => {
+            const activityId = evt.item.dataset.kegiatanId;
+            const fromList = evt.from;
+            const toList = evt.to;
+
+            if (fromList !== toList) {
+                const newProjectId = toList.dataset.proyekId || null;
+                await updateDoc(doc(db, "users", currentUser.uid, "activities", activityId), {
+                    proyekId: newProjectId
+                });
+            }
+
+            const toItemIds = Array.from(toList.children).map(child => child.dataset.kegiatanId);
+            updateOrderInFirestore(toItemIds, 'activities');
+
+            if (fromList !== toList) {
+                const fromItemIds = Array.from(fromList.children).map(child => child.dataset.kegiatanId);
+                updateOrderInFirestore(fromItemIds, 'activities');
+            }
+        }
+    };
+
+    if (projectContainer) {
+        sortableInstances.push(new Sortable(projectContainer, projectSortableOptions));
+    }
+
+    if (otherActivitiesContainer) {
+        otherActivitiesContainer.dataset.listType = 'activities';
+        sortableInstances.push(new Sortable(otherActivitiesContainer, activitySortableOptions));
+    }
+    subtaskContainers.forEach(container => {
+        container.dataset.listType = 'activities';
+        sortableInstances.push(new Sortable(container, activitySortableOptions));
+    });
+}
+
+async function updateOrderInFirestore(itemIds, listType, parentProjectId = null) {
+    if (!currentUser || itemIds.length === 0) return;
+
+    const batch = writeBatch(db);
+    const collectionName = listType === 'projects' ? 'projects' : 'activities';
+    const baseOrder = Date.now();
+
+    itemIds.forEach((id, index) => {
+        if (id) {
+            const docRef = doc(db, "users", currentUser.uid, collectionName, id);
+            batch.update(docRef, { order: baseOrder + index * 10 });
+        }
+    });
+
+    try {
+        await batch.commit();
+        console.log("Urutan berhasil diperbarui.");
+    } catch (error) {
+        console.error("Gagal memperbarui urutan: ", error);
+        showCustomAlert("Gagal menyimpan urutan baru.", "Error");
+    }
+}
+
 function renderDaftarUtama() {
     if (!currentUser) return;
     daftarProyekContainer.innerHTML = '';
@@ -301,13 +430,15 @@ function renderDaftarUtama() {
         daftarProyekContainer.appendChild(renderProyekRecursive(proyek));
     });
     const kegiatanTanpaProyek = daftarKegiatan.filter(k => !k.proyekId);
+    daftarKegiatanLainElement.dataset.proyekId = '';
     kegiatanTanpaProyek.forEach(kegiatan => {
         const liKegiatan = buatElemenKegiatan(kegiatan);
-        liKegiatan.classList.add('bg-white', 'rounded-xl', 'shadow-sm', 'p-4');
+        liKegiatan.classList.add('bg-white', 'dark:bg-slate-800', 'rounded-xl', 'shadow-sm', 'p-4');
         daftarKegiatanLainElement.appendChild(liKegiatan);
     });
     const adaItem = daftarProyekContainer.hasChildNodes() || daftarKegiatanLainElement.hasChildNodes();
     pesanKosongElement.style.display = adaItem ? 'none' : 'block';
+    initSortable();
 }
 
 function renderProyekRecursive(proyek) {
@@ -330,22 +461,22 @@ function renderProyekRecursive(proyek) {
 
 function buatElemenProyek(proyek, subTugas) {
     const liProyek = document.createElement('div');
-    liProyek.className = 'list-proyek bg-white rounded-xl shadow-sm overflow-hidden transition-all duration-300 mb-4';
+    liProyek.className = 'list-proyek bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden transition-all duration-300 mb-4';
     liProyek.dataset.proyekId = proyek.id;
     const totalDurasiProyekMs = subTugas.filter(k => k.selesai && k.durasi).reduce((total, k) => total + k.durasi, 0);
     liProyek.innerHTML = `
-        <div class="p-4 flex justify-between items-center bg-slate-50 judul-proyek-container">
+        <div class="p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 judul-proyek-container">
             <div class="flex items-center gap-3 flex-grow cursor-pointer" data-action="toggle">
                 <span class="toggle-proyek transform transition-transform ${proyek.isCollapsed ? '-rotate-90' : ''}">▼</span>
-                <strong class="text-slate-900 text-lg">${proyek.nama}</strong>
+                <strong class="text-slate-900 dark:text-white text-lg">${proyek.nama}</strong>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
-                <span class="text-sm text-slate-500 font-medium mr-2">Total: ${formatDurasi(totalDurasiProyekMs)}</span>
-                <button title="Tambah Sub-Proyek" data-action="add-subproject" class="tombol-tambah-subproyek text-lg text-green-500 hover:bg-green-100 rounded-full w-8 h-8 flex items-center justify-center">+</button>
-                <button title="Hapus proyek dan semua turunannya" data-action="delete-project" class="tombol-hapus-proyek text-xl text-red-500 hover:bg-red-100 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
+                <span class="text-sm text-slate-500 dark:text-slate-400 font-medium mr-2">Total: ${formatDurasi(totalDurasiProyekMs)}</span>
+                <button title="Tambah Sub-Proyek" data-action="add-subproject" class="tombol-tambah-subproyek text-lg text-green-500 hover:bg-green-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">+</button>
+                <button title="Hapus proyek dan semua turunannya" data-action="delete-project" class="tombol-hapus-proyek text-xl text-red-500 hover:bg-red-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
             </div>
         </div>
-        <ul class="list-subtugas p-4 pt-0 space-y-2 ${proyek.isCollapsed ? 'collapsed' : ''}">
+        <ul class="list-subtugas p-4 pt-0 space-y-2 ${proyek.isCollapsed ? 'collapsed' : ''}" data-proyek-id="${proyek.id}">
             ${subTugas.map(k => buatElemenKegiatan(k, true).outerHTML).join('')}
         </ul>`;
     return liProyek;
@@ -353,15 +484,15 @@ function buatElemenProyek(proyek, subTugas) {
 
 function buatElemenKegiatan(kegiatan, isSubtugas = false) {
     const li = document.createElement('li');
-    li.className = isSubtugas ? 'flex flex-col gap-2 border-b border-slate-200 py-3 last:border-b-0' : 'flex flex-col gap-2';
+    li.className = isSubtugas ? 'flex flex-col gap-2 border-b border-slate-200 dark:border-slate-700 py-3 last:border-b-0' : 'flex flex-col gap-2';
     li.dataset.kegiatanId = kegiatan.id;
     const mainContent = document.createElement('div');
     mainContent.className = 'flex justify-between items-start';
     let teksElementHTML;
     if (kegiatan.isEditing) {
-        teksElementHTML = `<input type="text" value="${kegiatan.teks.replace(/"/g, '&quot;')}" class="input-edit-kegiatan flex-grow bg-yellow-100 border border-yellow-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-yellow-500">`;
+        teksElementHTML = `<input type="text" value="${kegiatan.teks.replace(/"/g, '&quot;')}" class="input-edit-kegiatan flex-grow bg-yellow-100 dark:bg-yellow-900/50 border border-yellow-400 dark:border-yellow-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-slate-900 dark:text-white">`;
     } else {
-        teksElementHTML = `<span class="text-slate-800 ${kegiatan.selesai ? 'line-through text-slate-400' : ''}">${kegiatan.teks}</span>`;
+        teksElementHTML = `<span class="text-slate-800 dark:text-slate-200 ${kegiatan.selesai ? 'line-through text-slate-400 dark:text-slate-500' : ''}">${kegiatan.teks}</span>`;
     }
     mainContent.innerHTML = `
         <div class="flex items-center gap-2 flex-wrap flex-grow mr-2">
@@ -388,37 +519,100 @@ function buatElemenKegiatan(kegiatan, isSubtugas = false) {
 }
 
 function perbaruiStatistik() {
-    const kegiatanSelesai = daftarKegiatan.filter(k => k.selesai && k.durasi);
+    const kegiatanSelesai = daftarKegiatan.filter(k => k.selesai && k.durasi > 0 && k.createdAt && k.waktuSelesai);
+
     if (kegiatanSelesai.length === 0) {
         if (kontenStatistikTeks) kontenStatistikTeks.innerHTML = '<p>Selesaikan tugas untuk melihat statistik.</p>';
-        if (statistikChart) { statistikChart.destroy(); statistikChart = null; }
+        if (statistikChart) {
+            statistikChart.destroy();
+            statistikChart = null;
+        }
         return;
     }
+
+    const intervals = kegiatanSelesai.map(k => ({
+        start: k.createdAt.toDate().getTime(),
+        end: k.waktuSelesai.toDate().getTime()
+    }));
+
+    intervals.sort((a, b) => a.start - b.start);
+
+    const mergedIntervals = [];
+    if (intervals.length > 0) {
+        mergedIntervals.push({ ...intervals[0] });
+
+        for (let i = 1; i < intervals.length; i++) {
+            const lastMerged = mergedIntervals[mergedIntervals.length - 1];
+            const current = intervals[i];
+            if (current.start < lastMerged.end) {
+                lastMerged.end = Math.max(lastMerged.end, current.end);
+            } else {
+                mergedIntervals.push({ ...current });
+            }
+        }
+    }
+
+    const totalDurasiUnikMs = mergedIntervals.reduce((total, interval) => total + (interval.end - interval.start), 0);
     const durasiPerKategori = {};
     kegiatanSelesai.forEach(k => {
         const kategori = k.kategori || 'Lainnya';
         durasiPerKategori[kategori] = (durasiPerKategori[kategori] || 0) + k.durasi;
     });
-    const totalDurasiMs = Object.values(durasiPerKategori).reduce((a, b) => a + b, 0);
-    kontenStatistikTeks.innerHTML = `<p class="flex justify-between py-1"><span>Total Waktu Produktif:</span> <strong>${formatDurasi(totalDurasiMs)}</strong></p><p class="flex justify-between py-1"><span>Tugas Selesai:</span> <strong>${kegiatanSelesai.length}</strong></p>`;
+
+    kontenStatistikTeks.innerHTML = `<p class="flex justify-between py-1"><span>Total Waktu Produktif:</span> <strong>${formatDurasi(totalDurasiUnikMs)}</strong></p><p class="flex justify-between py-1"><span>Tugas Selesai:</span> <strong>${kegiatanSelesai.length}</strong></p>`;
+
     if (statistikChart) statistikChart.destroy();
-    statistikChart = new Chart(statistikChartCanvas, { type: 'doughnut', data: { labels: Object.keys(durasiPerKategori), datasets: [{ data: Object.values(durasiPerKategori), backgroundColor: Object.keys(durasiPerKategori).map(label => getWarnaKategori(label, true)), borderColor: '#ffffff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { padding: 15 } }, tooltip: { callbacks: { label: (context) => ` ${context.label}: ${formatDurasi(context.raw)}` } } } } });
+    
+    const isDark = document.documentElement.classList.contains('dark');
+
+    statistikChart = new Chart(statistikChartCanvas, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(durasiPerKategori),
+            datasets: [{
+                data: Object.values(durasiPerKategori),
+                backgroundColor: Object.keys(durasiPerKategori).map(label => getWarnaKategori(label, true)),
+                borderColor: isDark ? '#1E293B' : '#FFFFFF', // Warna border chart disesuaikan
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        color: isDark ? '#94A3B8' : '#475569' // Warna teks legenda disesuaikan
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` ${context.label}: ${formatDurasi(context.raw)}`
+                    }
+                }
+            }
+        }
+    });
 }
 
-// === CRUD & ACTION FUNCTIONS ===
 async function tambahProyek() {
     const namaProyek = inputProyek.value.trim();
     if (!namaProyek) return showCustomAlert("Nama proyek tidak boleh kosong.");
     const parentId = pilihProyekInduk.value === 'none' ? null : pilihProyekInduk.value;
     const isDuplicate = daftarProyek.some(p => p.nama.toLowerCase() === namaProyek.toLowerCase() && p.parentId === parentId);
     if (isDuplicate) return showCustomAlert(`Proyek "${namaProyek}" sudah ada di level ini.`);
+
     const newDocRef = await addDoc(collection(db, "users", currentUser.uid, "projects"), {
         nama: namaProyek,
         parentId: parentId,
         isCollapsed: false,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        order: Date.now()
     });
-    const newProject = { id: newDocRef.id, nama: namaProyek, parentId: parentId, isCollapsed: false, createdAt: Timestamp.now() };
+
+    const newProject = { id: newDocRef.id, nama: namaProyek, parentId: parentId, isCollapsed: false, createdAt: Timestamp.now(), order: Date.now() };
     daftarProyek.push(newProject);
     renderProyekDropdowns();
     renderDaftarUtama();
@@ -431,13 +625,15 @@ async function tambahKegiatan() {
     const [jam, menit] = inputWaktu.value.split(':');
     const tanggalKegiatan = new Date(currentDate);
     if (inputWaktu.value) tanggalKegiatan.setHours(parseInt(jam, 10), parseInt(menit, 10), 0, 0);
+
     await addDoc(collection(db, "users", currentUser.uid, "activities"), {
         teks: teksKegiatan,
         kategori: inputKategori.value,
         proyekId: pilihProyekKegiatan.value !== 'none' ? pilihProyekKegiatan.value : null,
         selesai: false, durasi: null, isEditing: false, isFocusing: false, focusEndTime: null,
         createdAt: Timestamp.fromDate(tanggalKegiatan),
-        waktuSelesai: null
+        waktuSelesai: null,
+        order: Date.now()
     });
     inputKegiatan.value = ''; inputWaktu.value = ''; inputKegiatan.focus();
 }
@@ -576,7 +772,6 @@ function timerLoop() {
     if (!adaFokusAktif && document.title !== "Activity Logger Pro") document.title = "Activity Logger Pro";
 }
 
-// === HELPER FUNCTIONS ===
 async function requestNotificationPermission() {
     if ('Notification' in window) {
         const permission = await Notification.requestPermission();
@@ -586,22 +781,15 @@ async function requestNotificationPermission() {
     }
 }
 
-/**
- * =================================================================
- * PERBAIKAN DI FUNGSI INI
- * =================================================================
- * Fungsi ini sekarang mendelegasikan tugas menampilkan notifikasi
- * ke Service Worker agar bisa berjalan di background.
- */
 function kirimNotifikasiFokusSelesai(kegiatan) {
     const title = "⏰ Sesi Fokus Selesai!";
     const options = {
         body: `Kerja bagus! Kegiatan "${kegiatan.teks}" telah ditandai selesai.`,
-        icon: 'images/icon-192.png', // Pastikan path icon ini benar
-        vibrate: [200, 100, 200], // Pola getar: getar, jeda, getar
-        tag: 'fokus-selesai', // Agar notifikasi tidak menumpuk
+        icon: 'images/icon-192.png',
+        vibrate: [200, 100, 200],
+        tag: 'fokus-selesai',
         data: {
-            url: window.location.href // URL untuk dibuka saat notifikasi diklik
+            url: window.location.href
         }
     };
 
@@ -610,14 +798,11 @@ function kirimNotifikasiFokusSelesai(kegiatan) {
             registration.showNotification(title, options);
         });
     } else if (Notification.permission !== 'denied') {
-        // Fallback jika Service Worker tidak aktif, tampilkan notifikasi biasa
         new Notification(title, options);
     } else {
-        // Fallback jika notifikasi diblokir sama sekali
         new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg').play();
     }
 }
-
 
 function isSameDay(date1, date2) {
     if (!date1 || !date2) return false;
