@@ -1,6 +1,6 @@
 // Firebase Imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs, enableIndexedDbPersistence, Timestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, serverTimestamp, writeBatch, where, getDocs, enableIndexedDbPersistence, Timestamp, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // Firebase Configuration
@@ -19,7 +19,6 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 // === DOM ELEMENTS ===
-// (Tidak ada perubahan di sini)
 const loginOverlay = document.getElementById('login-overlay');
 const appContainer = document.getElementById('app-container');
 const inputEmail = document.getElementById('input-email');
@@ -58,12 +57,10 @@ const customAlertMessage = document.getElementById('custom-alert-message');
 const customPromptInputContainer = document.getElementById('custom-prompt-input-container');
 const customAlertButtons = document.getElementById('custom-alert-buttons');
 
-
 // === APP STATE ===
-// (Tidak ada perubahan di sini)
 let currentUser = null;
 let userProfile = {};
-let daftarKegiatan = [];
+let allActivities = [];
 let daftarProyek = [];
 let timerInterval = null;
 let statistikChart = null;
@@ -73,12 +70,7 @@ let currentDate = new Date();
 let eventListenersAttached = false;
 let sortableInstances = [];
 
-
-// =================================================================
-// PERBAIKAN DI SINI: FUNGSI DARK MODE DAN PEMANGGILANNYA
-// =================================================================
-
-// Fungsi untuk setup dark mode
+// === DARK MODE SETUP ===
 function setupDarkMode() {
     const darkModeToggle = document.getElementById('dark-mode-toggle');
     const lightIcon = document.getElementById('theme-toggle-light-icon');
@@ -109,9 +101,7 @@ function setupDarkMode() {
     });
 }
 
-// Panggil setupDarkMode() SEGERA setelah halaman dimuat
 setupDarkMode();
-
 
 // --- Main function to run the application ---
 function runApp() {
@@ -127,7 +117,7 @@ function runApp() {
             loginOverlay.style.display = 'flex';
             appContainer.classList.add('hidden');
             unsubscribeAll();
-            daftarKegiatan = [];
+            allActivities = [];
             daftarProyek = [];
             if (timerInterval) {
                 clearInterval(timerInterval);
@@ -151,7 +141,6 @@ function handleAuthError(error) {
 function setupAplikasi() {
     if (!eventListenersAttached) {
         setupAppEventListeners();
-        // setupDarkMode(); // <-- BARIS INI DIHAPUS DARI SINI
         eventListenersAttached = true;
     }
     loadInitialDataAndSetupListeners();
@@ -162,9 +151,6 @@ function setupAplikasi() {
     requestNotificationPermission();
 }
 
-
-// ... SISA KODE SAMA PERSIS SEPERTI SEBELUMNYA ...
-// (Anda tidak perlu mengubah apa pun dari sini ke bawah)
 function setupAppEventListeners() {
     tombolTambahProyek.addEventListener('click', tambahProyek);
     tombolTambah.addEventListener('click', tambahKegiatan);
@@ -172,8 +158,8 @@ function setupAppEventListeners() {
     daftarKegiatanLainElement.addEventListener('click', handleListClick);
     tombolGenerate.addEventListener('click', generateTeks);
     tombolSalin.addEventListener('click', () => salinTeks('hasil-teks'));
-    tombolHariSebelumnya.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 1); setTanggal(currentDate); });
-    tombolHariBerikutnya.addEventListener('click', () => { if (!isToday(currentDate)) { currentDate.setDate(currentDate.getDate() + 1); setTanggal(currentDate); } });
+    tombolHariSebelumnya.addEventListener('click', () => { const newDate = new Date(currentDate); newDate.setDate(newDate.getDate() - 1); setTanggal(newDate); });
+    tombolHariBerikutnya.addEventListener('click', () => { if (!isToday(currentDate)) { const newDate = new Date(currentDate); newDate.setDate(newDate.getDate() + 1); setTanggal(newDate); } });
     inputProyek.addEventListener('keydown', e => { if (e.key === 'Enter') tambahProyek(); });
     inputKegiatan.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputWaktu.focus(); } });
     inputWaktu.addEventListener('keydown', e => { if (e.key === 'Enter') tambahKegiatan(); });
@@ -200,11 +186,11 @@ function showCustomAlert(message, title = "Notifikasi") {
     });
 }
 
-function showCustomConfirm(message, title = "Konfirmasi") {
+function showCustomConfirm(message, title = "Konfirmasi", okText = "Yakin", cancelText = "Batal") {
     customPromptInputContainer.innerHTML = '';
     customAlertTitle.textContent = title;
     customAlertMessage.textContent = message;
-    customAlertButtons.innerHTML = `<button id="custom-confirm-cancel" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">Batal</button><button id="custom-confirm-ok" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Yakin</button>`;
+    customAlertButtons.innerHTML = `<button id="custom-confirm-cancel" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">${cancelText}</button><button id="custom-confirm-ok" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">${okText}</button>`;
     customAlertOverlay.classList.remove('hidden');
     setTimeout(() => customAlertBox.classList.add('visible'), 10);
     return new Promise(resolve => {
@@ -224,7 +210,7 @@ function showCustomConfirm(message, title = "Konfirmasi") {
 function showCustomPrompt(message, title = "Input", defaultValue = "") {
     customAlertTitle.textContent = title;
     customAlertMessage.textContent = message;
-    customPromptInputContainer.innerHTML = `<input type="text" id="custom-prompt-input" value="${defaultValue}" class="mt-2 w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">`;
+    customPromptInputContainer.innerHTML = `<input type="text" id="custom-prompt-input" value="${defaultValue}" class="mt-2 w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">`;
     customAlertButtons.innerHTML = `<button id="custom-prompt-cancel" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">Batal</button><button id="custom-prompt-ok" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Simpan</button>`;
     customAlertOverlay.classList.remove('hidden');
     setTimeout(() => {
@@ -249,6 +235,57 @@ function showCustomPrompt(message, title = "Input", defaultValue = "") {
     });
 }
 
+function showAddActivityPrompt(message, title = "Input") {
+    customAlertTitle.textContent = title;
+    customAlertMessage.textContent = message;
+    
+    const categories = ['Pekerjaan', 'Belajar', 'Pribadi', 'Istirahat', 'Lainnya'];
+    const categoryOptions = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+    
+    customPromptInputContainer.innerHTML = `
+        <div class="space-y-3 text-left">
+            <input type="text" id="custom-prompt-input-text" placeholder="Nama kegiatan..." class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
+            <select id="custom-prompt-input-category" class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
+                ${categoryOptions}
+            </select>
+        </div>
+    `;
+    
+    customAlertButtons.innerHTML = `<button id="custom-prompt-cancel" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 px-4 rounded-lg">Batal</button><button id="custom-prompt-ok" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Simpan</button>`;
+    
+    customAlertOverlay.classList.remove('hidden');
+    setTimeout(() => {
+        customAlertBox.classList.add('visible');
+        document.getElementById('custom-prompt-input-text').focus();
+    }, 10);
+
+    return new Promise(resolve => {
+        const okBtn = document.getElementById('custom-prompt-ok');
+        const cancelBtn = document.getElementById('custom-prompt-cancel');
+        const textInput = document.getElementById('custom-prompt-input-text');
+        const categoryInput = document.getElementById('custom-prompt-input-category');
+
+        const close = (value) => {
+            customAlertBox.classList.remove('visible');
+            setTimeout(() => {
+                customAlertOverlay.classList.add('hidden');
+                customPromptInputContainer.innerHTML = '';
+            }, 200);
+            resolve(value);
+        };
+
+        okBtn.onclick = () => {
+            if (textInput.value.trim()) {
+                close({ text: textInput.value.trim(), category: categoryInput.value });
+            } else {
+                close(null);
+            }
+        };
+        cancelBtn.onclick = () => close(null);
+        textInput.onkeydown = (e) => { if (e.key === 'Enter') okBtn.click(); };
+    });
+}
+
 async function loadInitialDataAndSetupListeners() {
     if (!currentUser) return;
     unsubscribeAll();
@@ -269,37 +306,39 @@ async function loadInitialDataAndSetupListeners() {
     }
 }
 
-function setupDailyActivityListener() {
+function setupDailyActivityListener(carryOver = true) {
     if (!currentUser) return;
     unsubscribeActivities();
-    daftarKegiatan = [];
+    allActivities = [];
     renderDaftarUtama();
     loadingElement.style.display = 'block';
     pesanKosongElement.style.display = 'none';
-    const startOfDay = currentDate;
+
+    const startOfDay = new Date(currentDate);
+    startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(currentDate);
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    const activitiesQuery = query(collection(db, "users", currentUser.uid, "activities"), where("createdAt", ">=", startOfDay), where("createdAt", "<", endOfDay), orderBy("order", "asc"));
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let activitiesQuery;
+    if (carryOver) {
+        activitiesQuery = query(collection(db, "users", currentUser.uid, "activities"), where("createdAt", "<=", endOfDay), orderBy("createdAt", "desc"));
+    } else {
+        activitiesQuery = query(collection(db, "users", currentUser.uid, "activities"), where("createdAt", ">=", startOfDay), where("createdAt", "<=", endOfDay), orderBy("createdAt", "desc"));
+    }
+
     unsubscribeActivities = onSnapshot(activitiesQuery, (snapshot) => {
         loadingElement.style.display = 'none';
-        snapshot.docChanges().forEach((change) => {
-            const kegiatanData = { id: change.doc.id, ...change.doc.data() };
-            if (!kegiatanData.order) {
-                kegiatanData.order = kegiatanData.createdAt.toMillis();
-            }
-            const index = daftarKegiatan.findIndex(k => k.id === change.doc.id);
+        const fetchedActivities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            if (change.type === "added") {
-                if (index === -1) daftarKegiatan.push(kegiatanData);
-            }
-            if (change.type === "modified") {
-                if (index > -1) daftarKegiatan[index] = kegiatanData;
-            }
-            if (change.type === "removed") {
-                if (index > -1) daftarKegiatan.splice(index, 1);
-            }
-        });
-        daftarKegiatan.sort((a, b) => a.order - b.order);
+        if (carryOver) {
+            allActivities = fetchedActivities.filter(activity => {
+                const activityDate = activity.createdAt.toDate();
+                return !activity.selesai || isSameDay(activityDate, currentDate);
+            });
+        } else {
+            allActivities = fetchedActivities;
+        }
+
         renderDaftarUtama();
         perbaruiStatistik();
     }, (error) => {
@@ -317,14 +356,36 @@ async function ubahNamaTampilan() {
     }
 }
 
-function setTanggal(newDate) {
+async function setTanggal(newDate) {
+    const oldDate = new Date(currentDate);
     currentDate = new Date(newDate.setHours(0, 0, 0, 0));
+    
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     tanggalHariIniElement.textContent = currentDate.toLocaleDateString('id-ID', options);
+    
     const today = isToday(currentDate);
     tombolHariBerikutnya.disabled = today;
     tombolHariBerikutnya.style.opacity = today ? 0.5 : 1;
-    setupDailyActivityListener();
+    
+    let carryOver = true;
+    if (currentDate > oldDate && !isToday(currentDate)) {
+        const startOfNewDay = new Date(currentDate);
+        startOfNewDay.setHours(0,0,0,0);
+        const q = query(collection(db, "users", currentUser.uid, "activities"), where("selesai", "==", false), where("createdAt", "<", startOfNewDay));
+        const unfinishedSnapshot = await getDocs(q);
+
+        if (!unfinishedSnapshot.empty) {
+            const userChoice = await showCustomConfirm(
+                "Ada tugas yang belum selesai dari hari sebelumnya. Apakah Anda ingin membawanya ke hari ini?",
+                "Bawa Tugas?",
+                "Ya, Bawa Tugas",
+                "Tidak, Mulai Baru"
+            );
+            carryOver = userChoice;
+        }
+    }
+
+    setupDailyActivityListener(carryOver);
 }
 
 function isToday(date) {
@@ -389,7 +450,7 @@ function initSortable() {
     });
 }
 
-async function updateOrderInFirestore(itemIds, listType, parentProjectId = null) {
+async function updateOrderInFirestore(itemIds, listType) {
     if (!currentUser || itemIds.length === 0) return;
 
     const batch = writeBatch(db);
@@ -405,7 +466,6 @@ async function updateOrderInFirestore(itemIds, listType, parentProjectId = null)
 
     try {
         await batch.commit();
-        console.log("Urutan berhasil diperbarui.");
     } catch (error) {
         console.error("Gagal memperbarui urutan: ", error);
         showCustomAlert("Gagal menyimpan urutan baru.", "Error");
@@ -414,6 +474,9 @@ async function updateOrderInFirestore(itemIds, listType, parentProjectId = null)
 
 function renderDaftarUtama() {
     if (!currentUser) return;
+    
+    const daftarKegiatan = [...allActivities].sort((a, b) => (a.order || 0) - (b.order || 0));
+
     daftarProyekContainer.innerHTML = '';
     daftarKegiatanLainElement.innerHTML = '';
     const projectsById = daftarProyek.reduce((acc, p) => ({ ...acc, [p.id]: { ...p, children: [] } }), {});
@@ -426,9 +489,10 @@ function renderDaftarUtama() {
             rootProjects.push(projectsById[p.id]);
         }
     });
-    rootProjects.forEach(proyek => {
-        daftarProyekContainer.appendChild(renderProyekRecursive(proyek));
+    rootProjects.sort((a,b) => (a.order || 0) - (b.order || 0)).forEach(proyek => {
+        daftarProyekContainer.appendChild(renderProyekRecursive(proyek, daftarKegiatan));
     });
+
     const kegiatanTanpaProyek = daftarKegiatan.filter(k => !k.proyekId);
     daftarKegiatanLainElement.dataset.proyekId = '';
     kegiatanTanpaProyek.forEach(kegiatan => {
@@ -436,23 +500,24 @@ function renderDaftarUtama() {
         liKegiatan.classList.add('bg-white', 'dark:bg-slate-800', 'rounded-xl', 'shadow-sm', 'p-4');
         daftarKegiatanLainElement.appendChild(liKegiatan);
     });
-    const adaItem = daftarProyekContainer.hasChildNodes() || daftarKegiatanLainElement.hasChildNodes();
+    
+    const adaItem = rootProjects.length > 0 || daftarKegiatan.length > 0;
     pesanKosongElement.style.display = adaItem ? 'none' : 'block';
+    
     initSortable();
 }
 
-function renderProyekRecursive(proyek) {
-    const subTugasHariIni = daftarKegiatan.filter(k => k.proyekId === proyek.id);
-    const dibuatHariIni = proyek.createdAt ? isSameDay(proyek.createdAt.toDate(), currentDate) : false;
+function renderProyekRecursive(proyek, daftarKegiatan) {
+    const subTugasUntukProyekIni = daftarKegiatan.filter(k => k.proyekId === proyek.id);
     const container = document.createElement('div');
-    if (subTugasHariIni.length > 0 || dibuatHariIni || (proyek.children && proyek.children.length > 0)) {
-        container.appendChild(buatElemenProyek(proyek, subTugasHariIni));
-    }
+    
+    container.appendChild(buatElemenProyek(proyek, subTugasUntukProyekIni));
+    
     if (proyek.children && proyek.children.length > 0) {
         const childrenContainer = document.createElement('div');
         childrenContainer.className = `sub-projects-container ml-5 ${proyek.isCollapsed ? 'collapsed' : ''}`;
-        proyek.children.forEach(child => {
-            childrenContainer.appendChild(renderProyekRecursive(child));
+        proyek.children.sort((a,b) => (a.order || 0) - (b.order || 0)).forEach(child => {
+            childrenContainer.appendChild(renderProyekRecursive(child, daftarKegiatan));
         });
         container.appendChild(childrenContainer);
     }
@@ -463,7 +528,7 @@ function buatElemenProyek(proyek, subTugas) {
     const liProyek = document.createElement('div');
     liProyek.className = 'list-proyek bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden transition-all duration-300 mb-4';
     liProyek.dataset.proyekId = proyek.id;
-    const totalDurasiProyekMs = subTugas.filter(k => k.selesai && k.durasi).reduce((total, k) => total + k.durasi, 0);
+    const totalDurasiProyekMs = subTugas.filter(k => k.selesai && k.durasi && k.waktuSelesai && isSameDay(k.waktuSelesai.toDate(), currentDate)).reduce((total, k) => total + k.durasi, 0);
     liProyek.innerHTML = `
         <div class="p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 judul-proyek-container">
             <div class="flex items-center gap-3 flex-grow cursor-pointer" data-action="toggle">
@@ -471,9 +536,10 @@ function buatElemenProyek(proyek, subTugas) {
                 <strong class="text-slate-900 dark:text-white text-lg">${proyek.nama}</strong>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
-                <span class="text-sm text-slate-500 dark:text-slate-400 font-medium mr-2">Total: ${formatDurasi(totalDurasiProyekMs)}</span>
-                <button title="Tambah Sub-Proyek" data-action="add-subproject" class="tombol-tambah-subproyek text-lg text-green-500 hover:bg-green-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">+</button>
-                <button title="Hapus proyek dan semua turunannya" data-action="delete-project" class="tombol-hapus-proyek text-xl text-red-500 hover:bg-red-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
+                <span class="text-sm text-slate-500 dark:text-slate-400 font-medium mr-2">Hari Ini: ${formatDurasi(totalDurasiProyekMs)}</span>
+                <button title="Tambah Kegiatan" data-action="add-activity" class="text-lg text-green-500 hover:bg-green-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">+</button>
+                <button title="Tambah Sub-Proyek" data-action="add-subproject" class="text-lg text-blue-500 hover:bg-blue-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">📂</button>
+                <button title="Hapus proyek dan semua turunannya" data-action="delete-project" class="text-xl text-red-500 hover:bg-red-100 dark:hover:bg-slate-600 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
             </div>
         </div>
         <ul class="list-subtugas p-4 pt-0 space-y-2 ${proyek.isCollapsed ? 'collapsed' : ''}" data-proyek-id="${proyek.id}">
@@ -484,7 +550,7 @@ function buatElemenProyek(proyek, subTugas) {
 
 function buatElemenKegiatan(kegiatan, isSubtugas = false) {
     const li = document.createElement('li');
-    li.className = isSubtugas ? 'flex flex-col gap-2 border-b border-slate-200 dark:border-slate-700 py-3 last:border-b-0' : 'flex flex-col gap-2';
+    li.className = isSubtugas ? 'flex flex-col gap-2 border-b border-slate-200 dark:border-slate-700 py-3 last:border-b-0 bg-white dark:bg-slate-800 p-2 rounded-lg' : 'flex flex-col gap-2';
     li.dataset.kegiatanId = kegiatan.id;
     const mainContent = document.createElement('div');
     mainContent.className = 'flex justify-between items-start';
@@ -500,29 +566,45 @@ function buatElemenKegiatan(kegiatan, isSubtugas = false) {
             ${teksElementHTML}
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
-            <button title="Edit" data-action="edit-activity" class="p-1 text-slate-400 hover:text-blue-600 ${kegiatan.isEditing ? 'hidden' : ''}">✏️</button>
+            <button title="Edit" data-action="edit-activity" class="p-1 text-slate-400 hover:text-blue-600 ${kegiatan.isEditing || kegiatan.status === 'tracking' ? 'hidden' : ''}">✏️</button>
             <button title="Simpan" data-action="save-activity" class="p-1 text-slate-400 hover:text-green-600 ${!kegiatan.isEditing ? 'hidden' : ''}">💾</button>
-            <button title="Hapus" data-action="delete-activity" class="p-1 text-slate-400 hover:text-red-600">🗑️</button>
+            <button title="Hapus" data-action="delete-activity" class="p-1 text-slate-400 hover:text-red-600 ${kegiatan.status === 'tracking' ? 'hidden' : ''}">🗑️</button>
         </div>`;
+    
     const actionBar = document.createElement('div');
-    actionBar.className = 'flex justify-end items-center gap-2';
+    actionBar.className = 'flex justify-between items-center gap-2';
+    
+    let timerDisplayHTML = `<div class="timer-display font-bold text-lg text-slate-600 dark:text-slate-400" id="timer-${kegiatan.id}"></div>`;
+
+    let actionButtonsHTML = '';
     if (!kegiatan.selesai && !kegiatan.isEditing) {
-        if (kegiatan.isFocusing) {
-            actionBar.innerHTML = `<div class="timer-display font-bold text-xl text-red-500" id="timer-${kegiatan.id}">...</div><button data-action="cancel-focus" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-md">Batal</button>`;
-        } else {
-            actionBar.innerHTML = `<button data-action="start-focus" class="bg-yellow-400 hover:bg-yellow-500 text-black text-xs font-bold py-1 px-3 rounded-md">Fokus</button><button data-action="finish-activity" class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded-md">Selesai</button>`;
+        const finishButton = `<button data-action="finish-activity" class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-3 rounded-md">Selesai</button>`;
+        switch (kegiatan.status) {
+            case 'tracking':
+                actionButtonsHTML = `<button data-action="pause-timer" class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-bold py-1 px-3 rounded-md">Pause</button>${finishButton}`;
+                break;
+            case 'paused':
+                actionButtonsHTML = `<button data-action="resume-timer" class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded-md">Lanjutkan</button>${finishButton}`;
+                break;
+            default: // 'idle'
+                actionButtonsHTML = `<button data-action="start-tracking" class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-3 rounded-md">Start</button>
+                                     <button data-action="start-focus" class="bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-1 px-3 rounded-md">Fokus</button>`;
+                break;
         }
     }
+    
+    actionBar.innerHTML = `${timerDisplayHTML}<div class="flex gap-2">${actionButtonsHTML}</div>`;
+    
     li.appendChild(mainContent);
     li.appendChild(actionBar);
     return li;
 }
 
 function perbaruiStatistik() {
-    const kegiatanSelesai = daftarKegiatan.filter(k => k.selesai && k.durasi > 0 && k.createdAt && k.waktuSelesai);
+    const kegiatanSelesaiHariIni = allActivities.filter(k => k.selesai && k.durasi > 0 && k.waktuSelesai && isSameDay(k.waktuSelesai.toDate(), currentDate));
 
-    if (kegiatanSelesai.length === 0) {
-        if (kontenStatistikTeks) kontenStatistikTeks.innerHTML = '<p>Selesaikan tugas untuk melihat statistik.</p>';
+    if (kegiatanSelesaiHariIni.length === 0) {
+        if (kontenStatistikTeks) kontenStatistikTeks.innerHTML = '<p>Selesaikan tugas hari ini untuk melihat statistik.</p>';
         if (statistikChart) {
             statistikChart.destroy();
             statistikChart = null;
@@ -530,36 +612,14 @@ function perbaruiStatistik() {
         return;
     }
 
-    const intervals = kegiatanSelesai.map(k => ({
-        start: k.createdAt.toDate().getTime(),
-        end: k.waktuSelesai.toDate().getTime()
-    }));
-
-    intervals.sort((a, b) => a.start - b.start);
-
-    const mergedIntervals = [];
-    if (intervals.length > 0) {
-        mergedIntervals.push({ ...intervals[0] });
-
-        for (let i = 1; i < intervals.length; i++) {
-            const lastMerged = mergedIntervals[mergedIntervals.length - 1];
-            const current = intervals[i];
-            if (current.start < lastMerged.end) {
-                lastMerged.end = Math.max(lastMerged.end, current.end);
-            } else {
-                mergedIntervals.push({ ...current });
-            }
-        }
-    }
-
-    const totalDurasiUnikMs = mergedIntervals.reduce((total, interval) => total + (interval.end - interval.start), 0);
+    const totalDurasiUnikMs = kegiatanSelesaiHariIni.reduce((total, k) => total + k.durasi, 0);
     const durasiPerKategori = {};
-    kegiatanSelesai.forEach(k => {
+    kegiatanSelesaiHariIni.forEach(k => {
         const kategori = k.kategori || 'Lainnya';
         durasiPerKategori[kategori] = (durasiPerKategori[kategori] || 0) + k.durasi;
     });
 
-    kontenStatistikTeks.innerHTML = `<p class="flex justify-between py-1"><span>Total Waktu Produktif:</span> <strong>${formatDurasi(totalDurasiUnikMs)}</strong></p><p class="flex justify-between py-1"><span>Tugas Selesai:</span> <strong>${kegiatanSelesai.length}</strong></p>`;
+    kontenStatistikTeks.innerHTML = `<p class="flex justify-between py-1"><span>Total Waktu Produktif Hari Ini:</span> <strong>${formatDurasi(totalDurasiUnikMs)}</strong></p><p class="flex justify-between py-1"><span>Tugas Selesai Hari Ini:</span> <strong>${kegiatanSelesaiHariIni.length}</strong></p>`;
 
     if (statistikChart) statistikChart.destroy();
     
@@ -572,7 +632,7 @@ function perbaruiStatistik() {
             datasets: [{
                 data: Object.values(durasiPerKategori),
                 backgroundColor: Object.keys(durasiPerKategori).map(label => getWarnaKategori(label, true)),
-                borderColor: isDark ? '#1E293B' : '#FFFFFF', // Warna border chart disesuaikan
+                borderColor: isDark ? '#1E293B' : '#FFFFFF',
                 borderWidth: 2
             }]
         },
@@ -584,7 +644,7 @@ function perbaruiStatistik() {
                     position: 'bottom',
                     labels: {
                         padding: 15,
-                        color: isDark ? '#94A3B8' : '#475569' // Warna teks legenda disesuaikan
+                        color: isDark ? '#94A3B8' : '#475569'
                     }
                 },
                 tooltip: {
@@ -604,16 +664,17 @@ async function tambahProyek() {
     const isDuplicate = daftarProyek.some(p => p.nama.toLowerCase() === namaProyek.toLowerCase() && p.parentId === parentId);
     if (isDuplicate) return showCustomAlert(`Proyek "${namaProyek}" sudah ada di level ini.`);
 
-    const newDocRef = await addDoc(collection(db, "users", currentUser.uid, "projects"), {
+    await addDoc(collection(db, "users", currentUser.uid, "projects"), {
         nama: namaProyek,
         parentId: parentId,
         isCollapsed: false,
         createdAt: serverTimestamp(),
         order: Date.now()
     });
-
-    const newProject = { id: newDocRef.id, nama: namaProyek, parentId: parentId, isCollapsed: false, createdAt: Timestamp.now(), order: Date.now() };
-    daftarProyek.push(newProject);
+    
+    const projectsQuery = query(collection(db, "users", currentUser.uid, "projects"), orderBy("order", "asc"));
+    const projectSnapshot = await getDocs(projectsQuery);
+    daftarProyek = projectSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() }));
     renderProyekDropdowns();
     renderDaftarUtama();
     inputProyek.value = '';
@@ -624,13 +685,26 @@ async function tambahKegiatan() {
     if (!teksKegiatan) return showCustomAlert('Nama kegiatan tidak boleh kosong.');
     const [jam, menit] = inputWaktu.value.split(':');
     const tanggalKegiatan = new Date(currentDate);
-    if (inputWaktu.value) tanggalKegiatan.setHours(parseInt(jam, 10), parseInt(menit, 10), 0, 0);
+    if (inputWaktu.value) {
+        tanggalKegiatan.setHours(parseInt(jam, 10), parseInt(menit, 10), 0, 0);
+    } else {
+        const now = new Date();
+        tanggalKegiatan.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    }
 
     await addDoc(collection(db, "users", currentUser.uid, "activities"), {
         teks: teksKegiatan,
         kategori: inputKategori.value,
         proyekId: pilihProyekKegiatan.value !== 'none' ? pilihProyekKegiatan.value : null,
-        selesai: false, durasi: null, isEditing: false, isFocusing: false, focusEndTime: null,
+        selesai: false, 
+        durasi: 0, 
+        isEditing: false,
+        // State untuk timer
+        status: 'idle', // 'idle', 'tracking', 'paused'
+        isFocusing: false,
+        lastStartTime: null,
+        focusEndTime: null,
+        remainingTime: 0,
         createdAt: Timestamp.fromDate(tanggalKegiatan),
         waktuSelesai: null,
         order: Date.now()
@@ -652,8 +726,24 @@ async function handleListClick(e) {
             switch (action) {
                 case 'toggle':
                     await updateDoc(doc(db, "users", currentUser.uid, "projects", proyekId), { isCollapsed: !proyek.isCollapsed });
-                    daftarProyek[proyekIndex].isCollapsed = !proyek.isCollapsed;
-                    renderDaftarUtama();
+                    break;
+                case 'add-activity':
+                    const result = await showAddActivityPrompt(`Tambah kegiatan ke proyek "${proyek.nama}":`, "Tambah Kegiatan Baru");
+                    if (result){
+                        const tanggalKegiatan = new Date(currentDate);
+                        const now = new Date();
+                        tanggalKegiatan.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+                        await addDoc(collection(db, "users", currentUser.uid, "activities"), {
+                           teks: result.text,
+                           proyekId: proyekId,
+                           kategori: result.category,
+                           selesai: false,
+                           durasi: 0, isEditing: false, status: 'idle', isFocusing: false, lastStartTime: null, focusEndTime: null, remainingTime: 0,
+                           createdAt: Timestamp.fromDate(tanggalKegiatan),
+                           waktuSelesai: null,
+                           order: Date.now()
+                        });
+                    }
                     break;
                 case 'add-subproject':
                     const namaSubProyek = await showCustomPrompt(`Masukkan nama sub-proyek untuk "${proyek.nama}":`, "Tambah Sub-Proyek");
@@ -675,13 +765,11 @@ async function handleListClick(e) {
     const liKegiatan = target.closest('li[data-kegiatan-id]');
     if (liKegiatan) {
         const kegiatanId = liKegiatan.dataset.kegiatanId;
-        const kegiatan = daftarKegiatan.find(k => k.id === kegiatanId);
+        const kegiatan = allActivities.find(k => k.id === kegiatanId);
         if (!kegiatan) return;
         const docRef = doc(db, "users", currentUser.uid, "activities", kegiatanId);
         switch (action) {
-            case 'edit-activity':
-                await updateDoc(docRef, { isEditing: true });
-                break;
+            case 'edit-activity': await updateDoc(docRef, { isEditing: true }); break;
             case 'save-activity':
                 const newText = liKegiatan.querySelector('.input-edit-kegiatan').value.trim();
                 if (newText) await updateDoc(docRef, { teks: newText, isEditing: false });
@@ -691,23 +779,64 @@ async function handleListClick(e) {
                 if (delConfirm) await deleteDoc(docRef);
                 break;
             case 'finish-activity':
-                const waktuSelesai = new Date();
+                let durasiFinal = kegiatan.durasi || 0;
+                if (kegiatan.status === 'tracking' && kegiatan.lastStartTime) {
+                    const elapsed = Date.now() - kegiatan.lastStartTime.toDate().getTime();
+                    durasiFinal += elapsed;
+                }
                 await updateDoc(docRef, {
                     selesai: true,
-                    durasi: waktuSelesai.getTime() - kegiatan.createdAt.toDate().getTime(),
-                    waktuSelesai: Timestamp.fromDate(waktuSelesai)
+                    status: 'idle',
+                    isFocusing: false,
+                    durasi: durasiFinal,
+                    waktuSelesai: serverTimestamp()
                 });
+                break;
+            case 'start-tracking':
+                await updateDoc(docRef, { status: 'tracking', isFocusing: false, lastStartTime: serverTimestamp() });
                 break;
             case 'start-focus':
                 const durasiMenit = await showCustomPrompt("Atur timer fokus (menit):", "Fokus Mode", "25");
                 if (durasiMenit && !isNaN(parseInt(durasiMenit, 10)) && parseInt(durasiMenit, 10) > 0) {
                     if (Notification.permission !== 'granted') await requestNotificationPermission();
-                    const waktuSelesaiFokus = new Date(Date.now() + parseInt(durasiMenit, 10) * 60 * 1000);
-                    await updateDoc(docRef, { isFocusing: true, focusEndTime: Timestamp.fromDate(waktuSelesaiFokus) });
+                    const durasiMs = parseInt(durasiMenit, 10) * 60 * 1000;
+                    const waktuSelesaiFokus = new Date(Date.now() + durasiMs);
+                    await updateDoc(docRef, { 
+                        status: 'tracking', 
+                        isFocusing: true, 
+                        lastStartTime: serverTimestamp(),
+                        focusEndTime: Timestamp.fromDate(waktuSelesaiFokus), 
+                        remainingTime: durasiMs 
+                    });
                 }
                 break;
-            case 'cancel-focus':
-                await updateDoc(docRef, { isFocusing: false, focusEndTime: null });
+            case 'pause-timer':
+                if (kegiatan.status === 'tracking' && kegiatan.lastStartTime) {
+                    const elapsed = Date.now() - kegiatan.lastStartTime.toDate().getTime();
+                    const updateData = {
+                        status: 'paused',
+                        durasi: increment(elapsed),
+                        lastStartTime: null
+                    };
+                    if (kegiatan.isFocusing && kegiatan.focusEndTime) {
+                        const sisaWaktu = kegiatan.focusEndTime.toDate().getTime() - Date.now();
+                        updateData.remainingTime = sisaWaktu > 0 ? sisaWaktu : 0;
+                    }
+                    await updateDoc(docRef, updateData);
+                }
+                break;
+            case 'resume-timer':
+                if (kegiatan.status === 'paused') {
+                    const updateData = { 
+                        status: 'tracking', 
+                        lastStartTime: serverTimestamp() 
+                    };
+                    if (kegiatan.isFocusing && kegiatan.remainingTime > 0) {
+                        const newFocusEndTime = new Date(Date.now() + kegiatan.remainingTime);
+                        updateData.focusEndTime = Timestamp.fromDate(newFocusEndTime);
+                    }
+                    await updateDoc(docRef, updateData);
+                }
                 break;
         }
     }
@@ -744,32 +873,60 @@ async function hapusProyekDanTurunannya(proyekId) {
 }
 
 function timerLoop() {
-    let adaFokusAktif = false;
+    let activeTaskForTitle = null;
     const sekarang = Date.now();
-    daftarKegiatan.forEach(kegiatan => {
-        if (kegiatan.isFocusing && kegiatan.focusEndTime) {
-            adaFokusAktif = true;
-            const sisaWaktu = kegiatan.focusEndTime.toDate().getTime() - sekarang;
-            const timerElement = document.getElementById(`timer-${kegiatan.id}`);
-            if (sisaWaktu > 0) {
-                const waktuTampil = formatSisaWaktu(sisaWaktu);
-                if (timerElement) timerElement.textContent = waktuTampil;
-                document.title = `${waktuTampil} - ${kegiatan.teks}`;
-            } else {
-                document.title = "Selesai! - Activity Logger";
-                if (kegiatan.isFocusing) {
-                    kirimNotifikasiFokusSelesai(kegiatan);
-                    updateDoc(doc(db, "users", currentUser.uid, "activities", kegiatan.id), {
-                        isFocusing: false,
-                        selesai: true,
-                        durasi: kegiatan.focusEndTime.toDate().getTime() - kegiatan.createdAt.toDate().getTime(),
-                        waktuSelesai: kegiatan.focusEndTime
-                    });
+
+    allActivities.forEach(kegiatan => {
+        const timerElement = document.getElementById(`timer-${kegiatan.id}`);
+        if (!timerElement) return;
+
+        if (kegiatan.status === 'tracking' && kegiatan.lastStartTime) {
+            if (!activeTaskForTitle) activeTaskForTitle = kegiatan;
+
+            if (kegiatan.isFocusing) {
+                // Mode Fokus (Countdown)
+                if (kegiatan.focusEndTime) {
+                    const sisaWaktu = kegiatan.focusEndTime.toDate().getTime() - sekarang;
+                    if (sisaWaktu > 0) {
+                        timerElement.textContent = `Fokus: ${formatSisaWaktu(sisaWaktu)}`;
+                    } else {
+                        timerElement.textContent = "Fokus Selesai!";
+                        if(kegiatan.status === 'tracking'){ // Mencegah update berulang
+                            kirimNotifikasiFokusSelesai(kegiatan);
+                            const docRef = doc(db, "users", currentUser.uid, "activities", kegiatan.id);
+                            const elapsed = Date.now() - kegiatan.lastStartTime.toDate().getTime();
+                            updateDoc(docRef, {
+                                status: 'paused', // Otomatis pause saat waktu habis
+                                durasi: increment(elapsed),
+                                lastStartTime: null
+                            });
+                        }
+                    }
                 }
+            } else {
+                // Mode Tracker (Stopwatch)
+                const elapsed = sekarang - kegiatan.lastStartTime.toDate().getTime();
+                const totalDurasi = (kegiatan.durasi || 0) + elapsed;
+                timerElement.textContent = formatDurasi(totalDurasi);
             }
+        } else if (kegiatan.status === 'paused') {
+            // Tampilkan waktu terakhir saat di-pause
+            if (kegiatan.isFocusing) {
+                timerElement.textContent = `Fokus: ${formatSisaWaktu(kegiatan.remainingTime)}`;
+            } else {
+                timerElement.textContent = formatDurasi(kegiatan.durasi || 0);
+            }
+        } else {
+            // Idle
+            timerElement.textContent = formatDurasi(kegiatan.durasi || 0);
         }
     });
-    if (!adaFokusAktif && document.title !== "Activity Logger Pro") document.title = "Activity Logger Pro";
+
+    if (activeTaskForTitle) {
+        document.title = `Tracking... | ${activeTaskForTitle.teks}`;
+    } else if (!document.title.includes("Activity Logger")) {
+        document.title = "Activity Logger Pro";
+    }
 }
 
 async function requestNotificationPermission() {
@@ -784,7 +941,7 @@ async function requestNotificationPermission() {
 function kirimNotifikasiFokusSelesai(kegiatan) {
     const title = "⏰ Sesi Fokus Selesai!";
     const options = {
-        body: `Kerja bagus! Kegiatan "${kegiatan.teks}" telah ditandai selesai.`,
+        body: `Waktu untuk "${kegiatan.teks}" telah habis. Jangan lupa istirahat!`,
         icon: 'images/icon-192.png',
         vibrate: [200, 100, 200],
         tag: 'fokus-selesai',
@@ -817,18 +974,22 @@ function getWarnaKategori(kategori, isHex = false) {
 }
 
 function formatDurasi(ms) {
-    if (!ms || ms < 1000) return 'beberapa saat';
-    let totalMenit = Math.round(ms / 60000);
-    if (totalMenit < 1) return '< 1 menit';
-    const jam = Math.floor(totalMenit / 60);
-    const menit = totalMenit % 60;
+    if (!ms || ms < 1000) return '0d';
+    const totalDetik = Math.floor(ms / 1000);
+    const jam = Math.floor(totalDetik / 3600);
+    const menit = Math.floor((totalDetik % 3600) / 60);
+    const detik = totalDetik % 60;
+
     let hasil = [];
-    if (jam > 0) hasil.push(`${jam} jam`);
-    if (menit > 0) hasil.push(`${menit} menit`);
-    return hasil.join(' ');
+    if (jam > 0) hasil.push(`${jam}j`);
+    if (menit > 0) hasil.push(`${menit}m`);
+    if (detik > 0) hasil.push(`${detik}d`);
+    
+    return hasil.join(' ') || '0d';
 }
 
 function formatSisaWaktu(ms) {
+    if(ms < 0) ms = 0;
     const menit = Math.floor(ms / 60000).toString().padStart(2, '0');
     const detik = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
     return `${menit}:${detik}`;
@@ -845,6 +1006,10 @@ function formatJam(date) {
 function generateTeks() {
     const namaTampilan = userProfile.customName || currentUser.displayName || currentUser.email.split('@')[0];
     let teksFinal = `*Laporan Kegiatan Harian*\nNama: ${namaTampilan}\nTanggal: ${tanggalHariIniElement.textContent}\n\n`;
+    
+    const daftarKegiatanHariIni = allActivities.filter(k => isSameDay(k.createdAt.toDate(), currentDate) || !k.selesai)
+                                              .sort((a,b) => (a.order || 0) - (b.order || 0));
+
     const formatKegiatan = (k) => {
         let detailWaktu = '';
         if (k.selesai && k.createdAt && k.waktuSelesai) {
@@ -855,14 +1020,14 @@ function generateTeks() {
         return `- ${k.teks} ${detailWaktu}\n`;
     };
     daftarProyek.forEach(proyek => {
-        const subTugas = daftarKegiatan.filter(k => k.proyekId === proyek.id);
+        const subTugas = daftarKegiatanHariIni.filter(k => k.proyekId === proyek.id);
         if (subTugas.length > 0) {
             teksFinal += `*PROYEK: ${proyek.nama}*\n`;
             subTugas.forEach(k => { teksFinal += formatKegiatan(k); });
             teksFinal += '\n';
         }
     });
-    const kegiatanLain = daftarKegiatan.filter(k => !k.proyekId);
+    const kegiatanLain = daftarKegiatanHariIni.filter(k => !k.proyekId);
     if (kegiatanLain.length > 0) {
         teksFinal += '*KEGIATAN LAIN:*\n';
         kegiatanLain.forEach(k => { teksFinal += formatKegiatan(k); });
@@ -895,7 +1060,7 @@ function renderProyekDropdowns() {
     const populateDropdown = (selectElement) => {
         const selectedValue = selectElement.value;
         selectElement.innerHTML = `<option value="none">-- ${selectElement.id === 'pilih-proyek-induk' ? 'Tanpa Induk' : 'Tanpa Proyek'} --</option>`;
-        rootProjects.forEach(p => populateDropdownRecursive(p, 0, selectElement));
+        rootProjects.sort((a,b) => (a.order || 0) - (b.order || 0)).forEach(p => populateDropdownRecursive(p, 0, selectElement));
         if (Array.from(selectElement.options).some(opt => opt.value === selectedValue)) {
             selectElement.value = selectedValue;
         }
