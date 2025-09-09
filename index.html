@@ -1,217 +1,54 @@
 <!DOCTYPE html>
 <html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MY Project Hub</title>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Logger Chx</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" href="images/icon-192.png">
-    <meta name="theme-color" content="#3b82f6">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script>
-      tailwind.config = {
-        darkMode: 'class'
-      }
-    </script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
 
-    <style>
-        body {
-            overflow-x: hidden;
-        }
-        .list-subtugas,
-        .sub-projects-container {
-            max-height: 1000px;
-            transition: all 0.5s ease-in-out;
-            overflow: hidden;
-        }
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-        .list-subtugas.collapsed,
-        .sub-projects-container.collapsed {
-            max-height: 0;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
+  <body>
+    <header>
+      <h1>My Project Hub | Chx</h1>
+      <p>Kumpulan semua proyek dan karyaku dalam satu halaman.</p>
+      <button id="theme-toggle">☀️</button>
+    </header>
 
-        #login-overlay,
-        #custom-alert-overlay {
-            backdrop-filter: blur(5px);
-        }
+    <main>
+      <div class="controls-container">
+        <div id="filter-buttons" class="filter-container"></div>
 
-        .custom-alert {
-            transform: scale(0.95);
-            opacity: 0;
-            transition: all 0.2s ease-out;
-        }
-
-        .custom-alert.visible {
-            transform: scale(1);
-            opacity: 1;
-        }
-    </style>
-</head>
-
-<body class="bg-slate-100 dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300">
-
-    <div id="custom-alert-overlay"
-        class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-        <div id="custom-alert-box" class="custom-alert bg-white dark:bg-slate-800 w-full max-w-sm p-6 rounded-xl shadow-2xl text-center">
-            <h3 id="custom-alert-title" class="text-xl font-bold mb-4 text-slate-900 dark:text-white">Notifikasi</h3>
-            <p id="custom-alert-message" class="text-slate-600 dark:text-slate-300 mb-6">Ini adalah pesan notifikasi.</p>
-            <div id="custom-prompt-input-container" class="mb-4"></div>
-            <div id="custom-alert-buttons" class="flex gap-4 justify-center">
-            </div>
+        <div class="search-container">
+          <input type="search" id="search-input" placeholder="Cari proyek..." />
         </div>
-    </div>
+      </div>
 
+      <div id="project-list" class="project-container">
+        <p id="no-projects-message" style="display: none">
+          Belum ada proyek yang ditambahkan.
+        </p>
+      </div>
 
-    <div id="login-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center z-40 p-4">
-        <div class="bg-white w-full max-w-sm p-6 sm:p-8 rounded-xl shadow-2xl text-center">
-            <h2 class="text-2xl font-bold mb-6">Login atau Daftar</h2>
-            <div class="space-y-4">
-                <input type="email" id="input-email" placeholder="Email" autocomplete="email"
-                    class="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <input type="password" id="input-password" placeholder="Password" autocomplete="current-password"
-                    class="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <div class="flex gap-4">
-                    <button id="tombol-login"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Login</button>
-                    <button id="tombol-daftar"
-                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Daftar</button>
-                </div>
-                <div class="relative flex py-4 items-center">
-                    <div class="flex-grow border-t border-slate-300"></div>
-                    <span class="flex-shrink mx-4 text-slate-400">atau</span>
-                    <div class="flex-grow border-t border-slate-300"></div>
-                </div>
-                <button id="tombol-login-google"
-                    class="w-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"
-                        class="w-5 h-5">
-                    <span>Login dengan Google</span>
-                </button>
-                <p id="auth-error" class="text-red-500 text-sm h-4"></p>
-            </div>
-        </div>
-    </div>
+      <div class="pagination-container">
+        <button id="prev-btn" class="page-btn">Sebelumnya</button>
+        <span id="page-indicator">Halaman 1</span>
+        <button id="next-btn" class="page-btn">Berikutnya</button>
+      </div>
+    </main>
 
-    <div id="app-container" class="container mx-auto max-w-4xl p-4 md:p-8 hidden">
-        <header class="mb-8">
-            <div class="flex flex-wrap justify-between items-center gap-y-4">
-                <div class="w-1/2 md:w-1/5 order-1"><button id="tombol-logout"
-                        class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-lg text-sm">Logout</button>
-                </div>
-                <div class="w-1/2 md:hidden order-2"></div>
-                <div class="w-full md:w-auto order-3 md:order-2 text-center">
-                    <div class="flex items-center justify-center gap-2">
-                        <h1 id="nama-user" class="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white truncate">
-                            Memuat...</h1>
-                        
-                        <div class="flex items-center border border-slate-300 dark:border-slate-600 rounded-full">
-                            <button id="tombol-edit-nama" title="Ubah Nama Tampilan"
-                                class="text-xl text-slate-400 hover:text-blue-600 p-1 rounded-full transition-colors">✏️</button>
-                            
-                            <button id="dark-mode-toggle" title="Ubah Tema" class="text-xl text-slate-400 hover:text-blue-600 p-1 rounded-full transition-colors">
-                                <svg id="theme-toggle-dark-icon" class="hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-                                <svg id="theme-toggle-light-icon" class="hidden h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-center gap-4 mt-2">
-                        <button id="tombol-hari-sebelumnya"
-                            class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">◄</button>
-                        <p id="tanggal-hari-ini" class="text-slate-500 dark:text-slate-400 text-base sm:text-lg font-semibold"></p>
-                        <button id="tombol-hari-berikutnya"
-                            class="text-2xl hover:text-blue-600 transition-colors p-2 rounded-full">►</button>
-                    </div>
-                </div>
-                <div class="hidden md:block md:w-1/5 order-3"></div>
-            </div>
-        </header>
+    <footer>
+      <p>&copy; 2025 Chx | <a href="admin.html">Admin Panel</a></p>
+    </footer>
 
-        <main class="space-y-8">
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Buat Proyek / Sub-Proyek</h3>
-                        <input type="text" id="input-proyek" placeholder="Nama Proyek Baru"
-                            class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                        <select id="pilih-proyek-induk"
-                            class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                            <option value="none">-- Jadikan Proyek Utama (Tanpa Induk) --</option>
-                        </select>
-                        <button id="tombol-tambah-proyek"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah
-                            Proyek</button>
-                    </div>
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Tambah Kegiatan Baru</h3>
-                        <input type="text" id="input-kegiatan" placeholder="Nama kegiatan"
-                            class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                        <div class="grid grid-cols-2 gap-4">
-                            <input type="time" id="input-waktu"
-                                class="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                            <select id="input-kategori"
-                                class="bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                                <option>Pekerjaan</option>
-                                <option>Belajar</option>
-                                <option>Pribadi</option>
-                                <option>Istirahat</option>
-                                <option>Lainnya</option>
-                            </select>
-                        </div>
-                        <select id="pilih-proyek-kegiatan"
-                            class="w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white">
-                            <option value="none">-- Tanpa Proyek --</option>
-                        </select>
-                        <button id="tombol-tambah"
-                            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Tambah
-                            Kegiatan</button>
-                    </div>
-                </div>
-            </div>
-            <div id="daftar-utama-container" class="space-y-4">
-                <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Daftar Proyek & Kegiatan</h2>
-                <div id="loading" class="text-center py-8">
-                    <p class="text-slate-500 dark:text-slate-400">Menyambungkan ke database...</p>
-                </div>
-                <div id="pesan-kosong" class="hidden text-center py-8 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
-                    <p class="text-slate-500 dark:text-slate-400">Tidak ada proyek atau kegiatan untuk ditampilkan.</p>
-                </div>
-                <div id="daftar-proyek-container" class="space-y-3"></div>
-                <ul id="daftar-kegiatan-lain" class="space-y-3"></ul>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm md:col-span-1">
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-4">📊 Ringkasan Hari Ini</h2>
-                    <div class="relative h-64 w-full"> <canvas id="statistik-chart"></canvas> </div>
-                    <div id="konten-statistik-teks" class="text-slate-600 dark:text-slate-300 mt-4">
-                        <p>Selesaikan tugas untuk melihat statistik.</p>
-                    </div>
-                </div>
-                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm md:col-span-1">
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white mb-4">Utilitas Teks</h2>
-                    <div class="flex flex-wrap gap-2">
-                        <button id="tombol-generate-teks"
-                            class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg">Jadikan
-                            Teks</button>
-                        <button id="tombol-salin-teks"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Salin
-                            Teks</button>
-                    </div>
-                    <textarea id="hasil-teks" rows="8" placeholder="Hasil teks akan muncul di sini..."
-                        class="mt-4 w-full bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-slate-900 dark:text-white"></textarea>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script type="module" src="script.js"></script>
-</body>
-
+    <script type="module" src="script.js" defer></script>
+    <script src="theme.js" defer></script>
+  </body>
 </html>

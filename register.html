@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Akun</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            background: #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        #error-message {
+            color: #dc3545;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+    </head>
+<body>
+    <div class="login-container">
+        <h2>Register Admin Baru</h2>
+        <p id="error-message" style="display:none;"></p>
+        <form id="register-form">
+            <input type="email" id="register-email" placeholder="Email" required>
+            <input type="password" id="register-password" placeholder="Password (min. 6 karakter)" required>
+            <button type="submit">Register</button>
+        </form>
+        <p style="text-align: center; margin-top: 20px;">
+            Sudah punya akun? <a href="login.html">Login di sini</a>
+        </p>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

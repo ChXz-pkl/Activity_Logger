@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <script
+      src="https://cdn.tiny.cloud/1/tmkn3fjkqruhxrxzucgpa2cmmd33kveh6xqfta2nqc1aopvv/tinymce/6/tinymce.min.js"
+      referrerpolicy="origin"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <header>
+      <h1>Panel Admin Proyek</h1>
+      <p>Tambah, edit, atau hapus daftar proyekmu di sini.</p>
+      <button id="theme-toggle">☀️</button>
+    </header>
+
+    <main>
+      <div class="admin-container">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+          "
+        >
+          <p>Selamat datang, <strong id="admin-email"></strong>!</p>
+          <button id="logout-btn">Logout</button>
+        </div>
+
+        <hr style="border: 1px solid var(--border-color); margin: 30px 0" />
+
+        <div id="project-form-container">
+          <div class="form-header">
+            <h2 id="form-title">Tambah Proyek Baru</h2>
+            <button id="clear-form-btn" style="display: none">
+              Batal Edit
+            </button>
+          </div>
+
+          <form id="project-form">
+            <input type="hidden" id="project-id" />
+            <input type="hidden" id="project-image-old-url" />
+
+            <input
+              type="text"
+              id="project-title"
+              placeholder="Judul Proyek"
+              required
+            />
+            <textarea
+              id="project-description"
+              placeholder="Deskripsi Proyek"
+              rows="4"
+            ></textarea>
+
+            <div class="form-row">
+              <select id="project-category" required>
+                <option value="" disabled selected>-- Pilih Kategori --</option>
+              </select>
+              <select id="project-status" required>
+                <option value="" disabled selected>-- Pilih Status --</option>
+                <option value="Selesai">Selesai</option>
+                <option value="Berkembang">Berkembang</option>
+                <option value="Tertunda">Tertunda</option>
+                <option value="Archived">Diarsipkan</option>
+              </select>
+            </div>
+
+            <input
+              type="number"
+              id="project-rating"
+              placeholder="Rating Pribadi (1-5)"
+              min="1"
+              max="5"
+            />
+
+            <label for="project-image"
+              >Upload Gambar Utama (jika ingin ganti):</label
+            >
+            <input type="file" id="project-image" accept="image/*" />
+            <div
+              id="main-image-preview-container"
+              class="gallery-preview"
+            ></div>
+            <label for="project-images"
+              >Upload Gambar Galeri (bisa pilih banyak):</label
+            >
+            <input type="file" id="project-images" accept="image/*" multiple />
+
+            <div id="gallery-preview-container" class="gallery-preview"></div>
+
+            <input
+              type="text"
+              id="project-link"
+              placeholder="Link ke Proyek"
+              required
+            />
+
+            <div class="checkbox-container">
+              <input type="checkbox" id="project-featured" />
+              <label for="project-featured"
+                >Jadikan Proyek Unggulan (Featured)</label
+              >
+            </div>
+
+            <button type="submit" id="submit-btn">Simpan Proyek</button>
+          </form>
+        </div>
+
+        <hr style="border: 1px solid var(--border-color); margin: 30px 0" />
+
+        <h2>Daftar Proyek</h2>
+        <div id="admin-project-list"></div>
+      </div>
+    </main>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js" defer></script>
+    <script type="module" src="script.js" defer></script>
+    <script>
+      // Inisialisasi TinyMCE tetap di sini
+      tinymce.init({
+        selector: "textarea#project-description",
+        plugins: "lists link image table code help wordcount",
+        toolbar:
+          "undo redo | blocks | bold italic | alignleft aligncenter alignright | bullist numlist outdent indent | link image | code",
+      });
+    </script>
+    <script src="theme.js" defer></script>
+  </body>
+</html>
