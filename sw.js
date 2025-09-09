@@ -1,32 +1,52 @@
-// 1. NAIKKAN VERSI CACHE INI
-const CACHE_NAME = 'activity-logger-v10'; 
+const CACHE_NAME = 'activity-logger-v11';
 
-// 2. TAMBAHKAN SCRIPT SORTABLEJS KE DALAM DAFTAR CACHE
-const urlsToCache = [
+// Pisahkan file lokal dan file dari CDN
+const localUrlsToCache = [
   '/',
   'index.html',
   'script.js',
   'manifest.json',
   'images/icon-192.png',
   'images/icon-512.png',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js' // <-- BARIS BARU
 ];
 
-// Proses Instalasi
+const cdnUrlsToCache = [
+  'https://cdn.tailwindcss.com',
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js'
+];
+
+// Proses Instalasi (dengan logika baru)
 self.addEventListener('install', event => {
+  console.log(`SW: Proses instalasi untuk cache '${CACHE_NAME}' dimulai...`);
+  
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log(`Cache '${CACHE_NAME}' dibuka, menyimpan aset...`);
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      // 1. Cache file-file lokal seperti biasa
+      const cacheLocalPromise = cache.addAll(localUrlsToCache);
+      console.log('SW: Meng-cache aset lokal...');
+
+      // 2. Cache file-file CDN satu per satu dengan mode 'no-cors'
+      const cacheCdnPromises = cdnUrlsToCache.map(url => {
+        const request = new Request(url, { mode: 'no-cors' });
+        return fetch(request).then(response => {
+          console.log(`SW: Meng-cache aset CDN: ${url}`);
+          return cache.put(request, response);
+        }).catch(err => {
+          console.warn(`SW: Gagal meng-cache ${url}`, err);
+        });
+      });
+
+      // Tunggu semua proses caching selesai
+      return Promise.all([cacheLocalPromise, ...cacheCdnPromises]);
+    }).then(() => {
+      console.log('SW: Semua aset berhasil di-cache. Proses instalasi selesai.');
+      return self.skipWaiting();
+    })
   );
-  self.skipWaiting();
 });
 
-// Proses Aktivasi
+// Proses Aktivasi (tetap sama)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -45,29 +65,25 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Proses Fetch
+// Proses Fetch (tetap sama)
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || event.request.url.includes('firestore.googleapis.com')) {
     return;
   }
   event.respondWith(
-    fetch(event.request)
-      .then(networkResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          if(networkResponse.status === 200) {
-            cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        });
-      })
-      .catch(() => {
-        return caches.match(event.request);
+    caches.match(event.request)
+      .then(response => {
+        // Jika ada di cache, kembalikan dari cache
+        if (response) {
+          return response;
+        }
+        // Jika tidak, ambil dari jaringan
+        return fetch(event.request);
       })
   );
 });
 
-
-// Event listener untuk klik notifikasi
+// Event listener untuk klik notifikasi (tetap sama)
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const urlToOpen = event.notification.data.url;
