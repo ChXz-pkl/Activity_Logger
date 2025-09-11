@@ -636,6 +636,7 @@ function initSortable() {
   const projectSortableOptions = {
     animation: 150,
     ghostClass: "drag-ghost",
+    handle: '.drag-handle', // <-- TAMBAHKAN BARIS INI
     onEnd: (evt) => {
       const itemIds = Array.from(evt.from.children).map(
         (child) => child.dataset.proyekId
@@ -648,6 +649,7 @@ function initSortable() {
     animation: 150,
     ghostClass: "drag-ghost",
     group: "shared-activities",
+    handle: '.drag-handle', // <-- TAMBAHKAN BARIS INI
     onEnd: async (evt) => {
       const activityId = evt.item.dataset.kegiatanId;
       const fromList = evt.from;
@@ -809,13 +811,15 @@ function buatElemenProyek(proyek, subTugas) {
     .reduce((total, k) => total + k.durasi, 0);
   liProyek.innerHTML = `
         <div class="p-4 flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 judul-proyek-container">
-            <div class="flex items-center gap-3 flex-grow cursor-pointer" data-action="toggle">
-                <span class="toggle-proyek transform transition-transform ${
-                  proyek.isCollapsed ? "-rotate-90" : ""
-                }">▼</span>
-                <strong class="text-slate-900 dark:text-white text-lg">${
-                  proyek.nama
-                }</strong>
+            <div class="flex items-center gap-3 flex-grow" >
+                <span class="drag-handle cursor-move text-slate-400 text-xl">⠿</span> <div class="flex items-center gap-3 flex-grow cursor-pointer" data-action="toggle">
+                    <span class="toggle-proyek transform transition-transform ${
+                      proyek.isCollapsed ? "-rotate-90" : ""
+                    }">▼</span>
+                    <strong class="text-slate-900 dark:text-white text-lg">${
+                      proyek.nama
+                    }</strong>
+                </div>
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
                 <span class="text-sm text-slate-500 dark:text-slate-400 font-medium mr-2">Hari Ini: ${formatDurasi(
@@ -857,7 +861,7 @@ function buatElemenKegiatan(kegiatan, isSubtugas = false) {
   }
   mainContent.innerHTML = `
         <div class="flex items-center gap-2 flex-wrap flex-grow mr-2">
-            ${
+            <span class="drag-handle cursor-move text-slate-400">⠿</span> ${
               kegiatan.kategori
                 ? `<span class="kategori-tag text-xs font-bold px-2 py-1 rounded-full text-white ${getWarnaKategori(
                     kegiatan.kategori
@@ -904,7 +908,6 @@ function buatElemenKegiatan(kegiatan, isSubtugas = false) {
         actionButtonsHTML = `<button data-action="resume-timer" class="bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-1 px-3 rounded-md">Lanjutkan</button>${finishButton}`;
         break;
       default: // 'idle'
-        // <-- DIUBAH: Tombol "Start" dihapus. Hanya tombol "Fokus" yang tersisa jika diperlukan.
         actionButtonsHTML = `<button data-action="start-focus" class="bg-purple-500 hover:bg-purple-600 text-white text-xs font-bold py-1 px-3 rounded-md">Fokus</button>`;
         break;
     }
